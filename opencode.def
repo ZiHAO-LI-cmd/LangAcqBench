@@ -1,0 +1,30 @@
+Bootstrap: localimage
+From: ./containers/pytorch-base.sif
+
+%files
+    ./build-opencode/opencode /usr/local/bin/opencode
+
+%post
+    set -eu
+    chmod 755 /usr/local/bin/opencode
+    mkdir -p /opt/opencode /home/agent /workspace /hf-cache
+    sha256sum /usr/local/bin/opencode > /opt/opencode/binary.sha256
+
+%environment
+    export PATH="/usr/local/bin:$PATH"
+    export PYTHONNOUSERSITE=1
+
+%test
+    set -eu
+
+    TEST_DIR=$(mktemp -d /tmp/opencode-test.XXXXXX)
+    export XDG_DATA_HOME="$TEST_DIR/data"
+    export XDG_CONFIG_HOME="$TEST_DIR/config"
+    export XDG_CACHE_HOME="$TEST_DIR/cache"
+    export XDG_STATE_HOME="$TEST_DIR/state"
+
+    mkdir -p "$XDG_DATA_HOME" "$XDG_CONFIG_HOME" \
+             "$XDG_CACHE_HOME" "$XDG_STATE_HOME"
+
+    /usr/local/bin/opencode --version
+    python3 -c 'import torch; print(torch.__version__)'

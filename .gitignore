@@ -1,0 +1,37 @@
+# Apptainer container images
+*.sif
+
+# Downloaded OpenCode binaries and archives; retain build checksums
+/build-opencode/*
+!/build-opencode/*.sha256
+
+# Runtime homes, credentials, sessions, and generated work
+/interactive/
+/runs/
+
+# Slurm and application logs
+/logs/
+slurm-*.out
+*.log
+
+# Local secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Python environments and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Editor and OS temporary files
+*.swp
+*.swo
+*~
+.DS_Store
