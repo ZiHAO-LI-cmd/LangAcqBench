@@ -246,19 +246,3 @@ To cancel a job:
 ```bash
 scancel 123456
 ```
-
-## 7. Troubleshooting
-
-| Symptom | What to check |
-| --- | --- |
-| `System TMPDIR Not Set` | Set a writable `TMPDIR` with enough space in the shell or job environment before sourcing `env.sh`. |
-| Cannot find `env.sh` or `prompt.txt` | Run `sbatch` from the repository root and check `PROJECT_ROOT`. |
-| Slurm cannot open log files | Run `mkdir -p logs` before submission and check directory write permissions. |
-| Cannot find `containers/opencode.sif` | Prepare and build the image, and check the repository path in `env.sh`. |
-| Batch job fails to start after login | Check that `interactive/home/.local/share/opencode/auth.json` exists. The job copies only this credential file, not the full interactive configuration. |
-| Model is unavailable or access is denied | Regenerate the model list and check the `provider/model` identifier and authentication for that provider. |
-| `CUDA unavailable` | Confirm that the job has a GPU allocation and `USE_GPU=1`, then inspect the GPU check logs. |
-| Job times out | The default limit is 15 minutes. Adjust `#SBATCH --time` and resource requests within the partition's limits. |
-| Container version is unchanged after updating the binary | The binary is copied into the SIF during the build. Rebuild the image. |
-
-`interactive/home/` and `runs/*/home/` contain login credentials. When sharing results, select only the required work files and reports. Run outputs are excluded from Git; move code or reports that should be retained into an appropriate tracked location before committing them.
