@@ -40,6 +40,8 @@ exec apptainer exec --cleanenv --contain \
     --bind "$RUN_DIR/work:/workspace" \
     --bind "$HF_HOME:/hf-cache" \
     --bind "$RUNTIME_TMP:/tmp" \
+    --bind "$PROJECT_ROOT/models:/models:ro" \
+    --bind "$PROJECT_ROOT/data:/data:ro" \
     --pwd /workspace \
     --env HF_HOME=/hf-cache \
     --env XDG_CONFIG_HOME=/home/agent/.config \
