@@ -68,8 +68,7 @@ def read_records(path, text_column, id_column, language):
     return texts, ids
 
 
-def load_pair(source, target, src_code, tgt_code, text_column='text', id_column=None,
-              assume_row_aligned=False):
+def load_pair(source, target, src_code, tgt_code, text_column='text', id_column=None):
     import pyarrow.parquet as pq
     if id_column is None:
         common = set(pq.read_schema(source).names) & set(pq.read_schema(target).names)
@@ -85,11 +84,8 @@ def load_pair(source, target, src_code, tgt_code, text_column='text', id_column=
     else:
         if len(src) != len(tgt):
             raise ValueError(f'{source.parent.name}: unaligned row counts ({src_code}={len(src)}, '
-                             f'{tgt_code}={len(tgt)}); supply aligned files with IDs; refusing to truncate')
-        if not assume_row_aligned:
-            raise ValueError(f'{source.parent.name}: no shared ID column; only use --assume-row-aligned '
-                             'after confirming the original files have identical sentence ordering')
-        alignment = 'row_order_explicitly_confirmed'
+                             f'{tgt_code}={len(tgt)}); supply equal-length aligned files; refusing to truncate')
+        alignment = 'row_order'
     return src, tgt, alignment
 
 
@@ -139,7 +135,7 @@ def load_examples(args, dataset, src, tgt):
             if path.exists() and path.samefile(test_file):
                 raise ValueError('A few-shot file aliases a test file')
     sources, targets, alignment = load_pair(
-        *paths, left, right, args.text_column, args.id_column, args.assume_row_aligned)
+        *paths, left, right, args.text_column, args.id_column)
     unique = {}
     for index, pair in enumerate(zip(sources, targets)):
         unique.setdefault(pair, index)
@@ -254,7 +250,6 @@ def main():
     p.add_argument('--datasets', nargs='+', help='Default: all subdirectories containing Parquet files')
     p.add_argument('--text-column', default='text')
     p.add_argument('--id-column', help='Default: auto-detect id, sentence_id, or sample_id')
-    p.add_argument('--assume-row-aligned', action='store_true')
     p.add_argument('--batch-size', type=positive_int, default=64)
     p.add_argument('--max-new-tokens', type=positive_int, default=256)
     p.add_argument('--tensor-parallel-size', type=positive_int, default=1)
@@ -287,7 +282,7 @@ def main():
                 source = args.test_dir / dataset / (src + '.parquet')
                 target = args.test_dir / dataset / (tgt + '.parquet')
                 texts, refs, alignment = load_pair(source, target, src, tgt, args.text_column,
-                                                   args.id_column, args.assume_row_aligned)
+                                                   args.id_column)
                 examples, shot_metadata = load_examples(args, dataset, src, tgt)
                 groups.append((dataset, src, tgt, texts, refs, alignment, source, target, examples, shot_metadata))
         if args.validate_only:
