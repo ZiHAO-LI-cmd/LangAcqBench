@@ -1,0 +1,9 @@
+{
+  "model": "SmolLM3-3B",
+  "model_path": "/models/SmolLM3-3B",
+  "benchmark": "FLORES200 and BOUQUET translation",
+  "languages": ["Swedish (swe_Latn)", "English (eng_Latn)"],
+  "translation_directions": ["English to Swedish", "Swedish to English"],
+  "num_hours": 0.25,
+  "gpu_info": "Requested resources: 1 NVIDIA GH200 GPU, 72 CPUs. Inspect actual GPU memory and installed packages before training."
+}

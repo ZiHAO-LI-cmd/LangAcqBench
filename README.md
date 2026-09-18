@@ -11,7 +11,7 @@ The current local environment:
 | CPU architecture | ARM64 / aarch64 |
 | Container runtime | Apptainer (image build metadata records version 1.4.5) |
 | OpenCode | 1.18.30 |
-| PyTorch | 2.10.0+cu130 |
+| PyTorch | 2.10.0+cu129 (vLLM base) |
 | GPU | NVIDIA GH200 120GB |
 | Slurm account / partition | `project_2008161` / `gputest` |
 | Default job resources | 1 node, 1 task, 72 CPUs, 1 GH200 GPU, 15 minutes |
@@ -28,7 +28,7 @@ The host must provide `apptainer`, Slurm commands, and a writable temporary dire
 │   ├── in-container.sh        # Shared container entry point
 │   ├── gpu-check.sh           # Slurm GPU check
 │   └── opencode.sh            # Slurm OpenCode job
-├── prompt.txt                 # Batch job prompt
+├── prompt.md                 # Batch job prompt
 ├── opencode_models.txt        # Model list snapshot; can be regenerated
 ├── interactive/               # Home and work directories for interactive sessions
 ├── runs/                      # Separate directory for each batch job
@@ -65,17 +65,17 @@ When moving to another account or partition, also update the `#SBATCH` directive
 
 If a working `containers/opencode.sif` already exists, skip to section 4.
 
-### 3.1 Prepare the PyTorch Base Image
+### 3.1 Prepare the vLLM Base Image
 
-The local metadata for the current `pytorch-base.sif` records the following source. Pull it from an environment with access to this registry:
+The build uses the prepared vLLM 0.19.1 base image. Pull it from an environment with access to this registry:
 
 ```bash
 source env.sh
-apptainer pull containers/pytorch-base.sif \
-  docker://satama.csc.fi/r_installation_aida/pytorch-base:2.10_cuda13_roihu
+apptainer pull containers/vllm-0-19-1-base.sif \
+  docker://satama.csc.fi/r_installation_aida/vllm:0.19.1_cuda12.9_roihu
 ```
 
-Alternatively, place an existing PyTorch SIF compatible with the target node architecture at `containers/pytorch-base.sif`.
+The local image contains vLLM 0.19.1, PyTorch 2.10.0+cu129, and the main training dependencies for ARM64. The older `containers/pytorch-base.sif` is not used by this definition.
 
 ### 3.2 Prepare the OpenCode Binary
 
@@ -108,7 +108,7 @@ On a node that supports unprivileged Apptainer builds, run from the repository r
 apptainer build containers/opencode.sif opencode.def
 ```
 
-`opencode.def` uses the local PyTorch image, copies the binary to `/usr/local/bin/opencode`, and saves `/opt/opencode/binary.sha256` inside the image. Build tests check the OpenCode version and import PyTorch. GPU availability must be checked separately through Slurm.
+`opencode.def` uses `containers/vllm-0-19-1-base.sif`, copies OpenCode to `/usr/local/bin/opencode`, and records its checksum in `/opt/opencode/binary.sha256`. It reuses the base image's vLLM/PyTorch stack and adds SacreBLEU 2.5.1. Installed Python versions are recorded in `/opt/opencode/python-requirements.txt`. `vllm-python` is a compatibility wrapper for `/usr/bin/python3`; training and evaluation share the base environment. Build tests check OpenCode and import the evaluation packages. GPU inference must be checked separately through Slurm.
 
 If the cluster requires fakeroot builds and has enabled that support for your user, use:
 
@@ -199,14 +199,21 @@ srun --account=project_2008161 --partition=gputest \
 ## 6. Submit an OpenCode Batch Job
 
 1. Complete authentication in section 4 and select a full `provider/model` identifier from the model list.
-2. Edit `prompt.txt` in the repository root to describe the task and output files.
+2. Keep `prompt.md` as a reusable template. Copy `configs/smollm3-swedish.example.json` to an experiment JSON file and edit its model, container model path, languages, translation directions, benchmark, time budget, and GPU description. Rendering requires Python 3 on the submission/compute host and uses only its standard library. Preview the final prompt before submission:
+
+```bash
+python3 scripts/render-prompt.py --template prompt.md \
+  --config configs/smollm3-swedish.example.json --output /tmp/prompt.preview.md
+```
+
+Missing/unknown fields, empty values, unresolved placeholders, and invalid time budgets fail before the agent starts. Lists are rendered as comma-separated text. Ordinary JSON braces in the template are preserved. The config's `num_hours` is an agent budget; it does not change Slurm's `--time`. Set the Slurm allocation separately if needed. `gpu_info` describes expected resources; it is not automatic hardware detection.
 3. Submit the job from the repository root:
 
 ```bash
 mkdir -p logs
 # Replace the placeholder with an actual identifier from the current model list.
 MODEL_ID='provider/model'
-sbatch scripts/opencode.sh "$MODEL_ID"
+sbatch scripts/opencode.sh "$MODEL_ID" configs/smollm3-swedish.example.json
 ```
 
 The script:
@@ -214,10 +221,10 @@ The script:
 - Creates `runs/opencode-<job-id>/home` and `work`.
 - Copies `auth.json` from the interactive environment into the job's own home directory.
 - Writes a configuration that disables automatic updates and sets `permission: allow` so the task can execute tool operations automatically.
-- Copies `prompt.txt` into the working directory and calls `opencode run --model ... --format json`.
+- Snapshots the prompt template and experiment JSON, renders the final `prompt.md`, and calls `opencode run --model ... --format json`.
 - Enables GPU access and writes the event stream and errors to `agent.jsonl` and `agent.err`, respectively.
 
-The prompt and credentials are copied **when the job starts executing**. Editing `prompt.txt` while a job is queued affects jobs that have not started yet. The current script copies only the prompt as task input. Add other input files to the working directory separately, for example by adding a copy step before the `srun` call in `scripts/opencode.sh`.
+The template, experiment config, and credentials are copied **when the job starts executing**. Editing them while a job is queued affects jobs that have not started yet. Each job retains `prompt.template.md`, `experiment.json`, and the rendered `prompt.md` for inspection. The launcher also copies `evaluate.py`, `timer.sh`, and `requirements-eval.txt` into the workspace and initializes `.timer.json` before agent startup. The timer starts at batch-script entry, excluding queue time, and caps the configured budget at the Slurm end time when available.
 
 ### Inspect Results
 
@@ -227,7 +234,9 @@ runs/opencode-<job-id>/
 ├── agent.err                  # OpenCode / srun error output
 ├── home/                      # Job-specific configuration, credentials, and sessions
 └── work/
-    ├── prompt.txt             # Copy of the prompt used for this job
+    ├── prompt.template.md    # Template snapshot
+    ├── experiment.json       # Experiment configuration snapshot
+    ├── prompt.md             # Rendered prompt used for this job
     └── ...                    # Generated code, reports, and weights
 ```
 
@@ -246,3 +255,41 @@ To cancel a job:
 ```bash
 scancel 123456
 ```
+
+## 7. Timer and Translation Evaluation
+
+The batch launcher initializes the timer automatically. Inside the agent workspace:
+
+```bash
+bash timer.sh
+bash timer.sh --json
+```
+
+For a manually prepared workspace, copy `timer.sh` there and initialize it once with `bash timer.sh --init --config experiment.json`. The state is stored beside the script, so subsequent calls do not reset the clock. `--deadline UNIX_TIMESTAMP` can cap the configured budget at a scheduler deadline. Expired timers report zero; the timer reports time and does not kill processes (Slurm enforces its allocation).
+
+Rebuild `opencode.sif` using the updated `opencode.def`. The recipe extends the prepared vLLM 0.19.1 / PyTorch 2.10.0+cu129 base image and adds SacreBLEU. Both `python3 evaluate.py` and `vllm-python evaluate.py` use the same Python environment; the latter is retained for existing prompts and commands. No separate `/opt/vllm` environment or second vLLM installation is needed. The existing SIF is unchanged until rebuilt; GPU inference still needs verification on an allocated node.
+
+Inference uses [vLLM's offline LLM API](https://docs.vllm.ai/en/latest/api/vllm/entrypoints/llm/) for local causal language models. LoRA adapters use `--base-model /models/BASE` and vLLM's `LoRARequest`; other adapter types must be merged first. Model and tokenizer paths must be local directories; remote custom code is disabled.
+
+The evaluator expects `/data/test/DATASET/LANGUAGE_CODE.parquet` with a `text` column and, preferably, a shared sentence ID. Supply language names explicitly for the translation instruction:
+
+```bash
+vllm-python evaluate.py --model /workspace/final_model \
+  --languages eng_Latn=English swe_Latn=Swedish \
+  --dev-dir /data/dev --n-shot 3 \
+  --output /workspace/translation_metrics.json
+```
+
+By default, it evaluates all ordered pairs of configured languages in all Parquet dataset subdirectories. To restrict the evaluation, use `--datasets bouquet` or `--directions eng_Latn:swe_Latn`. Inference uses vLLM with greedy decoding (`temperature=0`), a 256-token output limit, and the tokenizer chat template if present. `--batch-size` defaults to 64; `--tensor-parallel-size`, `--gpu-memory-utilization`, and `--max-model-len` control the engine. `--max-lora-rank` defaults to 64 for adapter evaluation. `--prompt-format auto|plain|chat` controls formatting.
+
+Translation defaults to **3-shot** (`--n-shot 3`). Examples come exclusively from `/data/dev/DATASET/LANGUAGE_CODE.parquet`, using the same dataset and language pair as the test group. `--dev-dir` changes this root; `--seed` defaults to 0. Unique aligned pairs are sampled deterministically, reused for every test sentence in a group, and reversed for the opposite direction. Chat prompts use alternating user/assistant demonstration turns; plain prompts use labeled source/translation examples. `--n-shot 0` disables demonstrations and requires no dev files. Missing, misaligned, or insufficient dev examples cause an error rather than silently reducing the shot count. The dev files must be independently confirmed disjoint from the test set; pointing the dev path into the test directory (including symlinks) is rejected. The report records selected dev row indices and file hashes for reproducibility. Test reference translations are never added to prompts or exported.
+
+Test and few-shot dev alignment are checked for every selected dataset/direction before loading weights. IDs (`id`, `sentence_id`, `sample_id`, or an explicit `--id-column`) must be unique and have identical sets across the two files. Without IDs, `--assume-row-aligned` is required, and row counts must match. This flag is only valid after independently confirming the original sentence ordering; equal row counts alone do not prove alignment. `--validate-only` checks test alignment and few-shot availability without model loading or metric computation. `--assume-row-aligned` applies to both dev and test files, and requires confirmed ordering in both splits.
+
+**Current data issue:** FLORES200 test files have 1012 English rows and 997 Swedish rows, with only `text` and `lang` columns. Restore aligned records with original IDs before evaluating them; the evaluator deliberately refuses to truncate or guess missing positions. BOUQUET has 854 rows per language but no IDs, so its row ordering still needs confirmation before using `--assume-row-aligned`.
+
+Metrics are computed with SacreBLEU 2.5.1: `BLEU(tokenize="flores200")` and `CHRF(char_order=6, word_order=2, beta=2)` (chrF++). See the [SacreBLEU documentation](https://github.com/mjpost/sacrebleu). FLORES200 BLEU requires SentencePiece and downloads its tokenizer model on first use into SacreBLEU's cache (`SACREBLEU`, default `~/.sacrebleu`); prepopulate this cache if evaluation will run offline. Tokenizer failures are errors, with no fallback to another BLEU tokenizer.
+
+The JSON output includes per-dataset/per-direction scores on a 0–100 scale, metric signatures, file hashes, generation settings, package versions, and an unweighted macro average across evaluated groups. Macro averages are not pooled corpus BLEU. Use fixed prompts and settings across model comparisons, and keep final test scores out of training/model selection.
+
+Implementation checks use synthetic data and a mocked vLLM interface for prompt construction, deterministic selection, adapter requests, and metric output. Actual vLLM GPU inference must be verified in the compatible evaluation environment before a benchmark run.

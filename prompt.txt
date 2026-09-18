@@ -1,5 +1,0 @@
-请检查当前 Python 和 GPU 环境。
-在 /workspace 中编写一个小型 PyTorch 训练示例，
-在 GPU 上执行几步训练，将权重保存后重新加载验证。
-将过程和结果写入 /workspace/report.md。
-不要下载大型模型。

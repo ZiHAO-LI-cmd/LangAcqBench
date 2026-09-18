@@ -1,5 +1,5 @@
 Bootstrap: localimage
-From: ./containers/pytorch-base.sif
+From: ./containers/vllm-0-19-1-base.sif
 
 %files
     ./build-opencode/opencode /usr/local/bin/opencode
@@ -9,6 +9,17 @@ From: ./containers/pytorch-base.sif
     chmod 755 /usr/local/bin/opencode
     mkdir -p /opt/opencode /home/agent /workspace /hf-cache
     sha256sum /usr/local/bin/opencode > /opt/opencode/binary.sha256
+
+    # Reuse the base image's vLLM/PyTorch stack; only add the missing metric package.
+    python3 -m pip install --no-cache-dir 'sacrebleu==2.5.1'
+    python3 -m pip freeze > /opt/opencode/python-requirements.txt
+
+    # Compatibility entry point for existing evaluation commands.
+    cat > /usr/local/bin/vllm-python <<'EOF'
+#!/bin/sh
+exec /usr/bin/python3 "$@"
+EOF
+    chmod 755 /usr/local/bin/vllm-python
 
 %environment
     export PATH="/usr/local/bin:$PATH"
@@ -27,4 +38,4 @@ From: ./containers/pytorch-base.sif
              "$XDG_CACHE_HOME" "$XDG_STATE_HOME"
 
     /usr/local/bin/opencode --version
-    python3 -c 'import torch; print(torch.__version__)'
+    vllm-python -c 'import torch, vllm, sacrebleu, sentencepiece, pyarrow; print("vLLM:", vllm.__version__, "Torch:", torch.__version__, "CUDA:", torch.version.cuda)'

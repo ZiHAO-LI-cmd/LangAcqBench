@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../env.sh"
 
-# 默认使用交互环境；批量作业可通过 RUN_DIR 指定独立目录
+# The interactive environment is used by default; for batch jobs, a separate directory can be specified using RUN_DIR.
 RUN_DIR="${RUN_DIR:-$PROJECT_ROOT/interactive}"
 mkdir -p "$RUN_DIR/home" "$RUN_DIR/work"
 RUN_DIR="$(cd "$RUN_DIR" && pwd)"
@@ -24,7 +24,7 @@ GPU_ARGS=()
 if [[ "${USE_GPU:-0}" == "1" ]]; then
     GPU_ARGS+=(--nv)
 
-    # 在 Slurm 作业步骤内保留调度器设置的 GPU 可见性
+    # Preserving GPU visibility set by the scheduler within Slurm job steps
     if [[ -n "${CUDA_VISIBLE_DEVICES:-}" ]]; then
         GPU_ARGS+=(--env "CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES")
     fi
