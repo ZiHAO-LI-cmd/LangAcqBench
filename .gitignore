@@ -5,6 +5,9 @@
 /build-opencode/*
 !/build-opencode/*.sha256
 
+# Downloaded Codex release materials are local build inputs.
+/build-codex/
+
 # Runtime homes, credentials, sessions, and generated work
 /interactive/
 /runs/

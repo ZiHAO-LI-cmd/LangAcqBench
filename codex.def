@@ -1,0 +1,28 @@
+Bootstrap: localimage
+From: ./containers/vllm-0-19-1-base.sif
+
+%files
+    ./build-codex/codex /usr/local/bin/codex
+
+%post
+    set -eu
+    chmod 755 /usr/local/bin/codex
+    mkdir -p /opt/codex /home/agent /workspace /hf-cache
+    sha256sum /usr/local/bin/codex > /opt/codex/binary.sha256
+    python3 -m pip install --no-cache-dir 'sacrebleu==2.5.1'
+    python3 -m pip freeze > /opt/codex/python-requirements.txt
+    cat > /usr/local/bin/vllm-python <<'EOF'
+#!/bin/sh
+exec /usr/bin/python3 "$@"
+EOF
+    chmod 755 /usr/local/bin/vllm-python
+
+%environment
+    export PATH="/usr/local/bin:$PATH"
+    export PYTHONNOUSERSITE=1
+
+%test
+    set -eu
+    /usr/local/bin/codex --version
+    vllm-python -c 'import torch, vllm, sacrebleu, sentencepiece, pyarrow; print("vLLM:", vllm.__version__, "Torch:", torch.__version__, "CUDA:", torch.version.cuda)'
+
