@@ -3,12 +3,14 @@ From: ./containers/vllm-0-19-1-base.sif
 
 %files
     ./build-codex/codex /usr/local/bin/codex
+    ./build-codex/codex-code-mode-host /usr/local/bin/codex-code-mode-host
+    ./build-codex/version.txt /opt/codex/version.txt
 
 %post
     set -eu
-    chmod 755 /usr/local/bin/codex
+    chmod 755 /usr/local/bin/codex /usr/local/bin/codex-code-mode-host
     mkdir -p /opt/codex /home/agent /workspace /hf-cache
-    sha256sum /usr/local/bin/codex > /opt/codex/binary.sha256
+    sha256sum /usr/local/bin/codex /usr/local/bin/codex-code-mode-host > /opt/codex/binary.sha256
     python3 -m pip install --no-cache-dir 'sacrebleu==2.5.1'
     python3 -m pip freeze > /opt/codex/python-requirements.txt
     cat > /usr/local/bin/vllm-python <<'EOF'
@@ -24,5 +26,8 @@ EOF
 %test
     set -eu
     /usr/local/bin/codex --version
+    # Fail the build if the companion executable is missing or cannot load.
+    /usr/local/bin/codex-code-mode-host --help >/dev/null
+    sha256sum -c /opt/codex/binary.sha256
     vllm-python -c 'import torch, vllm, sacrebleu, sentencepiece, pyarrow; print("vLLM:", vllm.__version__, "Torch:", torch.__version__, "CUDA:", torch.version.cuda)'
 

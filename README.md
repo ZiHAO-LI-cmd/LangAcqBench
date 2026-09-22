@@ -218,7 +218,17 @@ mkdir -p logs
 # Replace the placeholder with an actual identifier from the current model list.
 MODEL_ID='provider/model'
 sbatch scripts/opencode.sh "$MODEL_ID" configs/smollm3-swedish.example.json
+
+# Optional third argument: a reasoning variant supported by this provider/model.
+sbatch scripts/opencode.sh "$MODEL_ID" configs/smollm3-swedish.example.json high
 ```
+
+The optional third argument is passed to `opencode run --variant`. Available
+variants (for example `low`, `high`, or `max`) depend on the selected provider/model;
+omitting it preserves the CLI/model default. The batch job uses a fresh config,
+so custom variants from your interactive config are not copied. See
+[OpenCode variants](https://opencode.ai/docs/models/#variants).
+Codex jobs use the same optional argument; see [Codex batch jobs](docs/codex.md#gpu-and-batch-jobs).
 
 The script:
 

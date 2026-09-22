@@ -14,10 +14,27 @@ set -euo pipefail
 umask 077
 JOB_STARTED_AT="$(date +%s)"
 
+# Usage: sbatch scripts/codex.sh MODEL EXPERIMENT_CONFIG [REASONING_LEVEL]
+if (( $# < 2 || $# > 3 )); then
+    echo "Usage: sbatch scripts/codex.sh MODEL EXPERIMENT_CONFIG [REASONING_LEVEL]" >&2
+    exit 2
+fi
+
 source "$SLURM_SUBMIT_DIR/env.sh"
 
 MODEL_ID="${1:?Please provide a Codex model ID}"
 EXPERIMENT_CONFIG="${2:?Please provide an experiment JSON config path}"
+# Omit the optional level to retain the CLI/model default.
+REASONING_LEVEL="${3:-}"
+REASONING_ARGS=()
+if [[ -n "$REASONING_LEVEL" ]]; then
+    case "$REASONING_LEVEL" in
+        none|minimal|low|medium|high|xhigh) ;;
+        *) echo "Invalid Codex reasoning level: $REASONING_LEVEL (expected none, minimal, low, medium, high, xhigh)" >&2; exit 2 ;;
+    esac
+    REASONING_ARGS=(-c "model_reasoning_effort=\"$REASONING_LEVEL\"")
+fi
+
 if [[ "$EXPERIMENT_CONFIG" != /* ]]; then
     EXPERIMENT_CONFIG="$SLURM_SUBMIT_DIR/$EXPERIMENT_CONFIG"
 fi
@@ -83,7 +100,7 @@ bash "$RUN_DIR/work/timer.sh" "${TIMER_ARGS[@]}"
 # is explicit here, matching the existing OpenCode batch tool permissions.
 # Only run trusted experiments; Apptainer containment is not a VM boundary.
 srun bash "$PROJECT_ROOT/scripts/in-container.sh" \
-    codex exec --model "$MODEL_ID" --json --skip-git-repo-check \
+    codex exec --model "$MODEL_ID" "${REASONING_ARGS[@]}" --json --skip-git-repo-check \
     --dangerously-bypass-approvals-and-sandbox \
     --output-last-message /workspace/agent-final.md - \
     < "$RUN_DIR/work/prompt.md" \

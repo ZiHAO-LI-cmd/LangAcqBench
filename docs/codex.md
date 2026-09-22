@@ -19,10 +19,13 @@ apptainer build --fakeroot --bind="$TMPDIR:/tmp" containers/codex.sif codex.def
 AGENT=codex bash scripts/in-container.sh codex --version
 ```
 
-The download helper records the selected version and a local binary checksum in
+The download helper fetches both `codex` and `codex-code-mode-host` from the same
+release and records the selected version and local binary checksums in
 `build-codex/`. This checksum is provenance for the downloaded file, not an
 independent upstream signature verification. Keep these materials with experiment
-records. The SIF records its installed binary checksum and Python package list.
+records. The SIF records both installed binary checksums and the Python package list.
+Its build test checks that the code-mode host can load; copying only the main
+`codex` binary is insufficient for tool execution.
 Nothing installs or upgrades Codex during a job. Building repacks the entire base
 image; use suitable allocated resources and local temporary disk space.
 
@@ -55,7 +58,15 @@ sbatch --export=ALL,AGENT=codex scripts/gpu-check.sh
 
 # Substitute a model ID available to your Codex account (no OpenCode provider/ prefix).
 sbatch scripts/codex.sh YOUR_CODEX_MODEL configs/smollm3-swedish.example.json
+
+# Optional third argument: reasoning effort.
+sbatch scripts/codex.sh YOUR_CODEX_MODEL configs/smollm3-swedish.example.json high
 ```
+
+The optional third argument sets `model_reasoning_effort` via Codex's `-c` flag.
+The launcher accepts `none`, `minimal`, `low`, `medium`, `high`, and `xhigh`;
+the selected model must support the requested level. Omitting it preserves the
+CLI/model default. See the [Codex configuration reference](https://developers.openai.com/codex/config-reference/).
 
 The default job uses the repository's 15-minute gputest allocation. Override
 partition/time at submission for longer experiments and keep the experiment
