@@ -7,7 +7,8 @@ an OpenCode provider. OpenCode remains the default for existing commands.
 
 ## Build once (repository root, Roihu-GPU)
 
-Prepare `containers/vllm-0-19-1-base.sif` as described in the main README.
+Prepare `containers/vllm-0-19-1-base.sif` as described in the
+[OpenCode guide](opencode.md#build-once).
 Use an explicit version from https://github.com/openai/codex/releases.
 The following stable release was available when this integration was prepared:
 
