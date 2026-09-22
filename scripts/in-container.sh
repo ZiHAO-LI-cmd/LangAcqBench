@@ -4,8 +4,15 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../env.sh"
 
+AGENT="${AGENT:-opencode}"
+case "$AGENT" in
+    opencode) DEFAULT_RUN_DIR="$PROJECT_ROOT/interactive" ;;
+    codex) DEFAULT_RUN_DIR="$PROJECT_ROOT/interactive/codex" ;;
+    *) echo "Unsupported AGENT: $AGENT (expected opencode or codex)" >&2; exit 2 ;;
+esac
+
 # The interactive environment is used by default; for batch jobs, a separate directory can be specified using RUN_DIR.
-RUN_DIR="${RUN_DIR:-$PROJECT_ROOT/interactive}"
+RUN_DIR="${RUN_DIR:-$DEFAULT_RUN_DIR}"
 mkdir -p "$RUN_DIR/home" "$RUN_DIR/work"
 RUN_DIR="$(cd "$RUN_DIR" && pwd)"
 
@@ -17,7 +24,7 @@ mkdir -p \
     "$RUN_DIR/home/.local/share" \
     "$RUN_DIR/home/.local/state"
 
-RUNTIME_TMP="$TMPDIR/opencode-${SLURM_JOB_ID:-interactive}"
+RUNTIME_TMP="$TMPDIR/$AGENT-${SLURM_JOB_ID:-interactive}"
 mkdir -p "$RUNTIME_TMP"
 
 GPU_ARGS=()
@@ -31,7 +38,7 @@ if [[ "${USE_GPU:-0}" == "1" ]]; then
 fi
 
 if [[ "$#" -eq 0 ]]; then
-    set -- opencode
+    set -- "$AGENT"
 fi
 
 exec apptainer exec --cleanenv --contain \
@@ -50,5 +57,5 @@ exec apptainer exec --cleanenv --contain \
     --env XDG_STATE_HOME=/home/agent/.local/state \
     --env PYTHONNOUSERSITE=1 \
     --env "TERM=${TERM:-xterm-256color}" \
-    "$PROJECT_ROOT/containers/opencode.sif" \
+    "$PROJECT_ROOT/containers/$AGENT.sif" \
     "$@"

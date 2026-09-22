@@ -1,4 +1,8 @@
-# Apptainer + OpenCode + Slurm Setup and Operation Guide
+# Apptainer + OpenCode / Codex + Slurm Setup and Operation Guide
+
+For the Codex container, login, GPU checks and batch jobs, see
+[Codex on Roihu](docs/codex.md). Existing OpenCode commands remain unchanged;
+set `AGENT=codex` to select Codex in the shared container entry point.
 
 This guide covers environment setup, authentication, GPU checks, and job submission. Commands use the current cluster configuration and should be run from the repository root unless stated otherwise.
 
