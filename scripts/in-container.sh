@@ -8,7 +8,8 @@ AGENT="${AGENT:-opencode}"
 case "$AGENT" in
     opencode) DEFAULT_RUN_DIR="$PROJECT_ROOT/interactive" ;;
     codex) DEFAULT_RUN_DIR="$PROJECT_ROOT/interactive/codex" ;;
-    *) echo "Unsupported AGENT: $AGENT (expected opencode or codex)" >&2; exit 2 ;;
+    claude) DEFAULT_RUN_DIR="$PROJECT_ROOT/interactive/claude" ;;
+    *) echo "Unsupported AGENT: $AGENT (expected opencode, codex, or claude)" >&2; exit 2 ;;
 esac
 
 # The interactive environment is used by default; for batch jobs, a separate directory can be specified using RUN_DIR.
@@ -23,6 +24,26 @@ mkdir -p \
     "$RUN_DIR/home/.cache" \
     "$RUN_DIR/home/.local/share" \
     "$RUN_DIR/home/.local/state"
+
+case "$AGENT" in
+    opencode)
+        CREDENTIAL_DIR="$RUN_DIR/home/.local/share/opencode"
+        CREDENTIAL_FILE="$CREDENTIAL_DIR/auth.json"
+        ;;
+    codex)
+        CREDENTIAL_DIR="$RUN_DIR/home/.codex"
+        CREDENTIAL_FILE="$CREDENTIAL_DIR/auth.json"
+        ;;
+    claude)
+        CREDENTIAL_DIR="$RUN_DIR/home/.claude"
+        CREDENTIAL_FILE="$CREDENTIAL_DIR/.credentials.json"
+        ;;
+esac
+mkdir -p "$CREDENTIAL_DIR"
+chmod 700 "$CREDENTIAL_DIR"
+if [[ -f "$CREDENTIAL_FILE" ]]; then
+    chmod 600 "$CREDENTIAL_FILE"
+fi
 
 RUNTIME_TMP="$TMPDIR/$AGENT-${SLURM_JOB_ID:-interactive}"
 mkdir -p "$RUNTIME_TMP"

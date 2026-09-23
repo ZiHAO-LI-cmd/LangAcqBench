@@ -1,14 +1,16 @@
 # LangAcqBench
 
 Apptainer and Slurm setup for running language-acquisition experiments on
-Roihu-GPU with OpenCode or Codex. Both agents share the vLLM base image, prompt
-template, experiment configuration, timer, and translation evaluator.
+Roihu-GPU with OpenCode, Codex, or Claude Code. The agents share the vLLM base
+image, prompt template, experiment configuration, timer, and translation evaluator.
 
 ## Guides
 
 - [OpenCode on Roihu](docs/opencode.md) — build the default OpenCode image,
   authenticate, check GPU access, submit jobs, and evaluate translations.
 - [Codex on Roihu](docs/codex.md) — build and use the standalone Codex CLI in
+  the same environment.
+- [Claude Code on Roihu](docs/claude.md) — build and use Claude Code CLI in
   the same environment.
 
 ## Repository layout

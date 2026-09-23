@@ -7,6 +7,9 @@
 # Downloaded Codex release materials are local build inputs.
 /build-codex/
 
+# Downloaded Claude Code installer and binary are local build inputs.
+/build-claude/
+
 # Runtime homes, credentials, sessions, and generated work
 /interactive/
 /runs/

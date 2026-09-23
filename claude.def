@@ -1,0 +1,30 @@
+Bootstrap: localimage
+From: ./containers/vllm-0-19-1-base.sif
+
+%files
+    ./build-claude/claude /usr/local/bin/claude
+    ./build-claude/version.txt /opt/claude/version.txt
+
+%post
+    set -eu
+    chmod 755 /usr/local/bin/claude
+    mkdir -p /opt/claude /home/agent /workspace /hf-cache
+    sha256sum /usr/local/bin/claude > /opt/claude/binary.sha256
+    python3 -m pip install --no-cache-dir 'sacrebleu==2.5.1'
+    python3 -m pip freeze > /opt/claude/python-requirements.txt
+    cat > /usr/local/bin/vllm-python <<'EOF'
+#!/bin/sh
+exec /usr/bin/python3 "$@"
+EOF
+    chmod 755 /usr/local/bin/vllm-python
+
+%environment
+    export PATH="/usr/local/bin:$PATH"
+    export PYTHONNOUSERSITE=1
+    export DISABLE_AUTOUPDATER=1
+
+%test
+    set -eu
+    /usr/local/bin/claude --version
+    sha256sum -c /opt/claude/binary.sha256
+    vllm-python -c 'import torch, vllm, sacrebleu, sentencepiece, pyarrow; print("vLLM:", vllm.__version__, "Torch:", torch.__version__, "CUDA:", torch.version.cuda)'
