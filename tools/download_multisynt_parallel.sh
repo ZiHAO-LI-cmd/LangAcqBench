@@ -39,10 +39,17 @@ fi
 
 download_lang() {
     local lang="$1"
+    local model_path="${MODEL}/${lang}"
     local dest="${DEST_ROOT}/${lang}/parallel/${MODEL}"
+    if [ "${lang}" = "eng_Latn" ]; then
+        # English is the shared source side of the parallel corpus and is not
+        # stored under a translation-model directory in the HF repository.
+        model_path="${lang}"
+        dest="${DEST_ROOT}/${lang}/parallel"
+    fi
     local stage="${DEST_ROOT}/.multisynt-download/${MODEL}/${lang}"
-    local source="${stage}/data/parallel/${MODEL}/${lang}"
-    local include="data/parallel/${MODEL}/${lang}/*.parquet"
+    local source="${stage}/data/parallel/${model_path}"
+    local include="data/parallel/${model_path}/*.parquet"
 
     echo ">>> [${lang}] model=${MODEL}; downloading parallel shards to ${dest}"
     mkdir -p "${dest}" "${stage}" "${HF_HOME}"
