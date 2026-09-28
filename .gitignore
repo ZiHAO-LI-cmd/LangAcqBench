@@ -24,6 +24,8 @@ slurm-*.out
 .env.*
 !.env.example
 !.env.*.example
+env-cpu/
+env-eval/
 
 # Python environments and caches
 .venv/

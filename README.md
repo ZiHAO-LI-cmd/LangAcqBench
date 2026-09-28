@@ -16,7 +16,7 @@ image, prompt template, experiment configuration, timer, and translation evaluat
 ## Repository layout
 
 ```text
-scripts/       Download helpers, container entry point, Slurm launchers, prompt renderer
+scripts/       Evaluator, download helpers, container entry point, Slurm launchers, prompt renderer
 docs/          Agent-specific operating guides
 configs/       Experiment configuration examples
 prompt.md      Batch-job prompt template
