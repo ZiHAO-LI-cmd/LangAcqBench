@@ -82,7 +82,8 @@ cli_auth_credentials_store = "file"
 EOF
 
 # Make the fixed task tools available in the container workspace.
-cp "$PROJECT_ROOT/evaluate.py" "$PROJECT_ROOT/timer.sh" "$RUN_DIR/work/"
+cp "$PROJECT_ROOT/scripts/evaluate-mt.py" "$PROJECT_ROOT/scripts/evaluate.sh" \
+    "$PROJECT_ROOT/timer.sh" "$RUN_DIR/work/"
 TIMER_ARGS=(--init --config "$RUN_DIR/work/experiment.json" --start "$JOB_STARTED_AT")
 JOB_END_EPOCH="${SLURM_JOB_END_TIME:-}"
 if [[ ! "$JOB_END_EPOCH" =~ ^[0-9]+$ ]] && command -v scontrol >/dev/null 2>&1; then

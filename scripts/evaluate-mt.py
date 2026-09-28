@@ -245,7 +245,8 @@ def main():
     p.add_argument('--dev-dir', type=Path, default=Path('/data/dev'), help='Aligned few-shot examples, grouped by dataset')
     p.add_argument('--n-shot', type=nonnegative_int, default=3, help='Number of dev examples per prompt (default: 3; 0 disables)')
     p.add_argument('--seed', type=nonnegative_int, default=0, help='Fixed few-shot selection and inference seed')
-    p.add_argument('--languages', nargs='+', required=True, metavar='CODE=NAME')
+    p.add_argument('--mt-dirs', nargs='+', required=True, metavar='CODE=NAME', dest='languages',
+                   help='Language code/name pairs; evaluate all ordered translation directions by default')
     p.add_argument('--directions', nargs='+', metavar='SOURCE:TARGET', help='Default: all ordered language pairs')
     p.add_argument('--datasets', nargs='+', help='Default: all subdirectories containing Parquet files')
     p.add_argument('--text-column', default='text')

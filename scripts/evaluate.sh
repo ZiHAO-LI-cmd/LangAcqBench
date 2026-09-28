@@ -1,0 +1,123 @@
+#!/bin/bash
+set -euo pipefail
+
+# Run this script inside a Slurm allocation. For the local resource defaults,
+# submit scripts/evaluate-slurm.sh instead.
+usage() {
+    cat <<'EOF'
+Usage: bash scripts/evaluate.sh MODEL --mt-dirs CODE=NAME CODE=NAME \
+         [--mono-tasks TASK[,TASK...]] [OPTIONS]
+
+Run translation evaluation inside an existing Slurm allocation.
+
+  MODEL           Model directory under models/, models/NAME, or an absolute path.
+  --mt-dirs       Required language code/name pairs; supply at least two.
+                  All ordered translation directions are evaluated by default.
+  --mono-tasks    Optional comma-separated lm_eval tasks to run after translation.
+  OPTIONS         Additional options accepted by scripts/evaluate-mt.py.
+
+Common options:
+  --n-shot N      Few-shot examples per prompt (default: 3; use 0 without data/dev).
+  --dev-dir DIR   Aligned examples for few-shot evaluation.
+  --output FILE   Override runs/evaluate-JOB_ID/work/evaluate-mt.json.
+
+Environment:
+  PROJECT_DIR     Repository path (defaults to this project's host path).
+
+Example (inside a Slurm allocation):
+  bash scripts/evaluate.sh SmolLM3-3B \
+    --mt-dirs eng_Latn=English swe_Latn=Swedish --n-shot 0 \
+    --mono-tasks belebele_swe_Latn
+
+Use scripts/evaluate-slurm.sh to request the local Slurm resources.
+EOF
+}
+
+if (( $# == 0 )); then
+    usage >&2
+    exit 2
+fi
+if [[ "$1" == -h || "$1" == --help ]]; then
+    usage
+    exit 0
+fi
+
+MODEL="$1"
+shift
+mono_tasks=""
+has_mt_dirs=0
+evaluator_args=()
+while (( $# )); do
+    case "$1" in
+        --mono-tasks)
+            if (( $# < 2 )) || [[ -z "$2" || "$2" == -* ]]; then
+                echo "--mono-tasks requires a comma-separated task list." >&2
+                exit 2
+            fi
+            mono_tasks="$2"
+            shift 2
+            ;;
+        --mono-tasks=*)
+            mono_tasks="${1#*=}"
+            if [[ -z "$mono_tasks" ]]; then
+                echo "--mono-tasks requires a comma-separated task list." >&2
+                exit 2
+            fi
+            shift
+            ;;
+        --mt-dirs|--mt-dirs=*)
+            has_mt_dirs=1
+            evaluator_args+=("$1")
+            shift
+            ;;
+        *)
+            evaluator_args+=("$1")
+            shift
+            ;;
+    esac
+done
+if (( ! has_mt_dirs )); then
+    echo "Missing --mt-dirs; provide at least two CODE=NAME values." >&2
+    exit 2
+fi
+
+PROJECT_DIR="${PROJECT_DIR:-/scratch/project_2008161/zihao/LangAcqBench}"
+cd "${PROJECT_DIR}"
+
+module --force purge
+module load python-vllm/0.29.0
+source env-eval/bin/activate
+
+case "$MODEL" in
+    /*) ;;
+    models/*) MODEL="$PROJECT_DIR/$MODEL" ;;
+    *) MODEL="$PROJECT_DIR/models/$MODEL" ;;
+esac
+test -d "$MODEL" || {
+    echo "Model directory not found: $MODEL" >&2
+    exit 2
+}
+
+RUN_DIR="$PROJECT_DIR/runs/evaluate-${SLURM_JOB_ID:?Run this script inside a Slurm allocation}"
+mkdir -p "$RUN_DIR/work"
+
+# Extra arguments can override these defaults, including --n-shot and --output.
+srun python -u "$PROJECT_DIR/scripts/evaluate-mt.py" \
+    --model "$MODEL" \
+    --test-dir "$PROJECT_DIR/data/test" \
+    --n-shot 3 \
+    --output "$RUN_DIR/work/evaluate-mt.json" \
+    "${evaluator_args[@]}"
+
+
+if [[ -n "$mono_tasks" ]]; then
+    srun lm_eval \
+        --model_args "pretrained=$MODEL,trust_remote_code=True" \
+        --device cuda:0 \
+        --batch_size 4 \
+        --tasks "$mono_tasks" \
+        --num_fewshot 0 \
+        --output_path "$RUN_DIR/work"
+else
+    echo "Skipping lm_eval: pass --mono-tasks to run monolingual tasks."
+fi
