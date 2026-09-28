@@ -137,10 +137,3 @@ The default job uses the repository's 15-minute gputest allocation. Override
 partition/time at submission for longer experiments and keep the experiment
 `num_hours` consistent with the Slurm allocation. `models/` and `data/` must
 exist because the container entry point mounts them.
-
-## Timer and translation evaluation
-
-The Claude launcher copies `evaluate.py` and `timer.sh` into the run workspace.
-Use the same vLLM evaluation workflow described in the
-[OpenCode guide](opencode.md#timer-and-translation-evaluation); the evaluator,
-metrics, dataset layout, and few-shot data rules are shared across agents.
