@@ -6,14 +6,14 @@ set -euo pipefail
 usage() {
     cat <<'EOF'
 Usage: bash scripts/evaluate.sh MODEL --mt-dirs CODE=NAME CODE=NAME \
-         [--mono-tasks TASK[,TASK...]] [OPTIONS]
+         [--mono-tasks TASK [TASK ...]] [OPTIONS]
 
 Run translation evaluation inside an existing Slurm allocation.
 
   MODEL           Model directory under models/, models/NAME, or an absolute path.
   --mt-dirs       Required language code/name pairs; supply at least two.
                   All ordered translation directions are evaluated by default.
-  --mono-tasks    Optional comma-separated lm_eval tasks to run after translation.
+  --mono-tasks    Optional lm_eval tasks, separated by spaces or commas.
   OPTIONS         Additional options accepted by scripts/evaluate-mt.py.
 
 Common options:
@@ -49,21 +49,19 @@ has_mt_dirs=0
 evaluator_args=()
 while (( $# )); do
     case "$1" in
-        --mono-tasks)
-            if (( $# < 2 )) || [[ -z "$2" || "$2" == -* ]]; then
-                echo "--mono-tasks requires a comma-separated task list." >&2
-                exit 2
-            fi
-            mono_tasks="$2"
-            shift 2
-            ;;
-        --mono-tasks=*)
-            mono_tasks="${1#*=}"
-            if [[ -z "$mono_tasks" ]]; then
-                echo "--mono-tasks requires a comma-separated task list." >&2
-                exit 2
+        --mono-tasks|--mono-tasks=*)
+            if [[ "$1" == *=* ]]; then
+                mono_tasks="${mono_tasks:+$mono_tasks,}${1#*=}"
             fi
             shift
+            while (( $# )) && [[ "$1" != -* ]]; do
+                mono_tasks="${mono_tasks:+$mono_tasks,}$1"
+                shift
+            done
+            if [[ -z "$mono_tasks" ]]; then
+                echo "--mono-tasks requires at least one task name." >&2
+                exit 2
+            fi
             ;;
         --mt-dirs|--mt-dirs=*)
             has_mt_dirs=1
