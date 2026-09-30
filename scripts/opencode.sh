@@ -7,8 +7,8 @@
 #SBATCH --cpus-per-task=72
 #SBATCH --gres=gpu:gh200:1
 #SBATCH --time=0-00:15:00
-#SBATCH --output=logs/opencode-%j.out
-#SBATCH --error=logs/opencode-%j.err
+#SBATCH --output=logs/%x-%j.out
+#SBATCH --error=logs/%x-%j.err
 
 set -euo pipefail
 umask 077
@@ -36,7 +36,7 @@ if [[ "$EXPERIMENT_CONFIG" != /* ]]; then
     EXPERIMENT_CONFIG="$SLURM_SUBMIT_DIR/$EXPERIMENT_CONFIG"
 fi
 test -f "$EXPERIMENT_CONFIG"
-export RUN_DIR="$PROJECT_ROOT/runs/opencode-$SLURM_JOB_ID"
+export RUN_DIR="$PROJECT_ROOT/runs/${SLURM_JOB_NAME:-opencode-task}-$SLURM_JOB_ID"
 export USE_GPU=1
 
 mkdir -p \

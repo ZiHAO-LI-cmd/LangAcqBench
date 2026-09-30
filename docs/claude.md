@@ -96,10 +96,10 @@ Submit a translation experiment with a Claude model alias or model ID available
 to your account:
 
 ```bash
-sbatch scripts/claude.sh sonnet configs/smollm3-swedish.example.json
+scripts/submit-agent.sh claude sonnet configs/smollm3-swedish.example.json
 
 # Optional effort level: low, medium, high, xhigh, or max.
-sbatch scripts/claude.sh sonnet configs/smollm3-swedish.example.json high
+scripts/submit-agent.sh claude sonnet configs/smollm3-swedish.example.json high
 ```
 
 The batch launcher supports the Console API key without an OAuth login file.
@@ -111,7 +111,7 @@ read -rsp 'Anthropic API key: ' CLAUDE_API_KEY
 printf '\n'
 export APPTAINERENV_ANTHROPIC_API_KEY="$CLAUDE_API_KEY"
 unset CLAUDE_API_KEY
-sbatch --export=ALL scripts/claude.sh sonnet configs/smollm3-swedish.example.json
+scripts/submit-agent.sh claude sonnet configs/smollm3-swedish.example.json
 unset APPTAINERENV_ANTHROPIC_API_KEY
 ```
 
@@ -121,7 +121,8 @@ OAuth credential and its concurrency lock as described below.
 
 The launcher renders and snapshots the prompt and experiment configuration,
 initializes the timer, and runs `claude -p` with JSON event output. It stores
-events in `runs/claude-JOB_ID/agent.jsonl`, errors in `agent.err`, and the final
+events in `runs/claude-EXPERIMENT-MODEL-JOB_ID/agent.jsonl`, errors in
+`agent.err`, and the final
 assistant response in `work/agent-final.md`. Each run gets a separate home and
 workspace. The launcher serializes access to the interactive OAuth credential
 and persists a refreshed credential after the job exits; a concurrent Claude
@@ -133,7 +134,8 @@ job environment. Apptainer containment is not a VM security boundary; submit
 only trusted prompts. Models and datasets are mounted read-only, while the run
 home and workspace are writable.
 
-The default job uses the repository's 15-minute gputest allocation. Override
-partition/time at submission for longer experiments and keep the experiment
-`num_hours` consistent with the Slurm allocation. `models/` and `data/` must
+The submit helper sets the Slurm time from `num_hours`, rounded up to a whole
+minute. It selects `gputest` for at most 15 minutes and `gpumedium` for longer
+jobs. Direct `sbatch scripts/claude.sh ...` still uses the script's 15-minute
+`gputest` defaults. `models/` and `data/` must
 exist because the container entry point mounts them.

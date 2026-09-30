@@ -58,21 +58,25 @@ mkdir -p logs
 sbatch --export=ALL,AGENT=codex scripts/gpu-check.sh
 
 # Substitute a model ID available to your Codex account (no OpenCode provider/ prefix).
-sbatch scripts/codex.sh YOUR_CODEX_MODEL configs/smollm3-swedish.example.json
+scripts/submit-agent.sh codex YOUR_CODEX_MODEL configs/smollm3-swedish.example.json
 
-# Optional third argument: reasoning effort.
-sbatch scripts/codex.sh YOUR_CODEX_MODEL configs/smollm3-swedish.example.json high
+# Optional fourth argument: reasoning effort.
+scripts/submit-agent.sh codex YOUR_CODEX_MODEL configs/smollm3-swedish.example.json high
 ```
 
-The optional third argument sets `model_reasoning_effort` via Codex's `-c` flag.
+The optional effort argument sets `model_reasoning_effort` via Codex's `-c` flag.
 The launcher accepts `none`, `minimal`, `low`, `medium`, `high`, and `xhigh`;
 the selected model must support the requested level. Omitting it preserves the
 CLI/model default. See the [Codex configuration reference](https://developers.openai.com/codex/config-reference/).
 
-The default job uses the repository's 15-minute gputest allocation. Override
-partition/time at submission for longer experiments and keep the experiment
-`num_hours` consistent with the Slurm allocation. Outputs are in
-`runs/codex-JOB_ID/`: `agent.jsonl`, `agent.err`, independent `home/`, and `work/`
+The submit helper sets the Slurm time from `num_hours`, rounded up to a whole
+minute. It selects `gputest` for at most 15 minutes and `gpumedium` for longer
+jobs. Direct `sbatch scripts/codex.sh ...` still uses the script's 15-minute
+`gputest` defaults. Outputs are in
+`runs/codex-EXPERIMENT-MODEL-JOB_ID/`, with matching
+`logs/codex-EXPERIMENT-MODEL-JOB_ID.{out,err}`. `EXPERIMENT` is the config
+filename without `.json`; names are lowercased and shortened if needed. Each
+run contains `agent.jsonl`, `agent.err`, independent `home/`, and `work/`
 containing the rendered prompt, experiment JSON, timer/evaluator and
 `agent-final.md` (the final assistant message).
 

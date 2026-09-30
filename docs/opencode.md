@@ -101,25 +101,38 @@ python3 scripts/render-prompt.py --template prompt.md \
   --config configs/my-experiment.json --output /tmp/prompt.preview.md
 
 MODEL_ID='provider/model'
-sbatch scripts/opencode.sh "$MODEL_ID" configs/my-experiment.json
+scripts/submit-agent.sh opencode "$MODEL_ID" configs/my-experiment.json
 
 # Optional reasoning variant, when supported by the selected model.
-sbatch scripts/opencode.sh "$MODEL_ID" configs/my-experiment.json high
+scripts/submit-agent.sh opencode "$MODEL_ID" configs/my-experiment.json high
 ```
 
 The optional argument is passed as `opencode run --variant`; available variants
-depend on the provider/model. The launcher creates `runs/opencode-JOB_ID/`,
+depend on the provider/model. The submit helper names each job
+`opencode-EXPERIMENT-MODEL-JOB_ID` in both `runs/` and `logs/`, where
+`EXPERIMENT` comes from the config filename. For example, config
+`my-experiment.json` and model `provider/model` produce
+`runs/opencode-my-experiment-provider-model-JOB_ID/` and matching
+`logs/opencode-my-experiment-provider-model-JOB_ID.{out,err}`. The launcher
 copies only `auth.json` into an isolated job home, snapshots and renders the
 prompt/configuration, initializes the timer, and writes OpenCode events to
 `agent.jsonl` and errors to `agent.err`. It enables automatic tool permissions,
 so submit only trusted experiments.
 
+The helper accepts paths from any working directory and creates `logs/` before
+submission. It reads `num_hours`, rounds up to whole minutes for Slurm, and
+selects `gputest` for up to 15 minutes or `gpumedium` above 15 minutes.
+Direct `sbatch scripts/opencode.sh ...` remains available for
+custom Slurm flags; its default name is `opencode-task-JOB_ID`. Use
+`sbatch --job-name=NAME scripts/opencode.sh ...` to give direct submissions a
+descriptive name in both directories.
+
 ```bash
-tail -f runs/opencode-JOB_ID/agent.jsonl
-cat runs/opencode-JOB_ID/agent.err
+tail -f runs/opencode-my-experiment-provider-model-JOB_ID/agent.jsonl
+cat runs/opencode-my-experiment-provider-model-JOB_ID/agent.err
 scancel JOB_ID
 ```
 
-An empty `logs/opencode-JOB_ID.out` is normal: agent output is redirected to the
+An empty Slurm `.out` log is normal: agent output is redirected to the
 run directory. Queued jobs snapshot prompt/configuration/credentials when they
 start, not when submitted.
