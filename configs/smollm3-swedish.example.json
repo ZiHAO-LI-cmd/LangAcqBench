@@ -4,13 +4,20 @@
   "languages": ["Swedish (swe_Latn)"],
   "translation_tasks": ["FLORES-200", "BOUQuET"],
   "translation_directions": ["English to Swedish", "Swedish to English"],
-  "monolingual_tasks": ["belebele_swe_Latn"],
+  "monolingual_tasks": [
+    "belebele_swe_Latn",
+    "multiblimp_swe",
+    "global_piqa_nonparallel_cloze_swe_latn",
+    "global_piqa_nonparallel_generation_swe_latn",
+    "global_piqa_parallel_cloze_swe_latn",
+    "global_piqa_parallel_generation_swe_latn"
+  ],
   "training_data": [
     {
       "host_path": "/scratch/project_2008161/zihao/LangAcqBench/data/train/swe_Latn",
       "agent_path": "/data/train/swe_Latn"
     }
   ],
-  "num_hours": 0.25,
+  "num_hours": 8,
   "gpu_info": "Requested resources: 1 NVIDIA GH200 GPU, 72 CPUs. Inspect actual GPU memory and installed packages before training."
 }
