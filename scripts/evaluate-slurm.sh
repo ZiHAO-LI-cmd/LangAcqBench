@@ -1,14 +1,14 @@
 #!/bin/bash
 #SBATCH --job-name=eval
-#SBATCH --error=logs/eval/%x_%j.err
-#SBATCH --output=logs/eval/%x_%j.out
+#SBATCH --error=runs/evaluate/logs/%x_%j.err
+#SBATCH --output=runs/evaluate/logs/%x_%j.out
 #SBATCH --account=project_2008161
-#SBATCH --partition=gputest
+#SBATCH --partition=gpumedium
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=72
 #SBATCH --gres=gpu:gh200:1
-#SBATCH --time=0-00:15:00
+#SBATCH --time=0-01:15:00
 
 set -euo pipefail
 
@@ -19,7 +19,7 @@ Usage: sbatch [SBATCH_OPTIONS] scripts/evaluate-slurm.sh MODEL \
          [EVALUATOR_OPTIONS]
 
 Submit translation evaluation with this cluster's Slurm resource defaults.
-Run from the repository root; create logs/eval before submitting.
+Run from the repository root; create runs/evaluate/logs before submitting.
 
   MODEL              Directory under models/, models/NAME, or an absolute path.
   --mt-dirs          Required language code/name pairs; supply at least two.
@@ -27,8 +27,9 @@ Run from the repository root; create logs/eval before submitting.
   EVALUATOR_OPTIONS  Passed to evaluate-mt.py (e.g. --n-shot 3, --dev-dir DIR).
   SBATCH_OPTIONS     Override local resource defaults, such as --time or --partition.
 
-The report goes to runs/evaluate-JOB_ID/work/evaluate-mt.json, and Slurm logs
-go to logs/eval/.
+Results go to runs/evaluate/MODEL__job-JOB_ID/ as translation.json,
+lm-eval_*.json (when requested), and summary.xlsx. Slurm logs go to
+runs/evaluate/logs/.
 
 Examples:
   sbatch scripts/evaluate-slurm.sh SmolLM3-3B \

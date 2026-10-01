@@ -19,7 +19,9 @@ Run translation evaluation inside an existing Slurm allocation.
 Common options:
   --n-shot N      Few-shot examples per prompt (default: 3; use 0 without data/dev).
   --dev-dir DIR   Aligned examples for few-shot evaluation.
-  --output FILE   Override runs/evaluate-JOB_ID/work/evaluate-mt.json.
+  --output FILE   Override the default translation JSON path.
+
+Results: runs/evaluate/MODEL__job-JOB_ID/{translation.json,lm-eval_*.json,summary.xlsx}
 
 Environment:
   PROJECT_DIR     Repository path (defaults to this project's host path).
@@ -47,6 +49,7 @@ shift
 mono_tasks=""
 has_mt_dirs=0
 evaluator_args=()
+translation_output=""
 while (( $# )); do
     case "$1" in
         --mono-tasks|--mono-tasks=*)
@@ -65,6 +68,24 @@ while (( $# )); do
             ;;
         --mt-dirs|--mt-dirs=*)
             has_mt_dirs=1
+            evaluator_args+=("$1")
+            shift
+            ;;
+        --output)
+            if (( $# < 2 )) || [[ "$2" == -* ]]; then
+                echo "--output requires a file path." >&2
+                exit 2
+            fi
+            translation_output="$2"
+            evaluator_args+=("$1" "$2")
+            shift 2
+            ;;
+        --output=*)
+            translation_output="${1#*=}"
+            if [[ -z "$translation_output" ]]; then
+                echo "--output requires a file path." >&2
+                exit 2
+            fi
             evaluator_args+=("$1")
             shift
             ;;
@@ -96,15 +117,28 @@ test -d "$MODEL" || {
     exit 2
 }
 
-RUN_DIR="$PROJECT_DIR/runs/evaluate-${SLURM_JOB_ID:?Run this script inside a Slurm allocation}"
-mkdir -p "$RUN_DIR/work"
+job_id="${SLURM_JOB_ID:?Run this script inside a Slurm allocation}"
+model_name="${MODEL##*/}"
+if [[ "$MODEL" == "$PROJECT_DIR"/runs/* ]]; then
+    model_run="${MODEL#"$PROJECT_DIR"/runs/}"
+    model_run="${model_run%%/*}"
+    source_job="${model_run##*-}"
+    if [[ "$source_job" =~ ^[0-9]+$ ]]; then
+        model_run="${model_run%%-*}-$source_job"
+    fi
+    model_name="$model_run-$model_name"
+fi
+model_name="$(printf '%s' "$model_name" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9._-]+/-/g; s/^-+//; s/-+$//')"
+RUN_DIR="$PROJECT_DIR/runs/evaluate/${model_name}__job-${job_id}"
+mkdir -p "$RUN_DIR"
+translation_output="${translation_output:-$RUN_DIR/translation.json}"
 
 # Extra arguments can override these defaults, including --n-shot and --output.
 srun python -u "$PROJECT_DIR/scripts/evaluate-mt.py" \
     --model "$MODEL" \
     --test-dir "$PROJECT_DIR/data/test" \
     --n-shot 3 \
-    --output "$RUN_DIR/work/evaluate-mt.json" \
+    --output "$RUN_DIR/translation.json" \
     "${evaluator_args[@]}"
 
 
@@ -115,7 +149,14 @@ if [[ -n "$mono_tasks" ]]; then
         --batch_size 4 \
         --tasks "$mono_tasks" \
         --num_fewshot 0 \
-        --output_path "$RUN_DIR/work"
+        --output_path "$RUN_DIR/lm-eval.json"
 else
     echo "Skipping lm_eval: pass --mono-tasks to run monolingual tasks."
 fi
+
+report_args=(--translation "$translation_output" --output "$RUN_DIR/summary.xlsx")
+if [[ -n "$mono_tasks" ]]; then
+    report_args+=(--lm-eval-dir "$RUN_DIR")
+fi
+python "$PROJECT_DIR/scripts/evaluate-report.py" "${report_args[@]}"
+echo "Evaluation results: $RUN_DIR"
