@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # Submit an agent job with a readable, shared name for Slurm, logs, and runs.
+# The selected job script appends runtime (hours) and any agent-reported cost
+# to logs/<job-name>-<job-id>.out when it exits.
 set -euo pipefail
 
 if (( $# < 3 || $# > 4 )); then

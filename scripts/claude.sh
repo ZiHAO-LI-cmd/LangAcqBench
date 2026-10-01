@@ -41,6 +41,7 @@ test -f "$EXPERIMENT_CONFIG"
 export AGENT=claude
 export RUN_DIR="$PROJECT_ROOT/runs/${SLURM_JOB_NAME:-claude-task}-$SLURM_JOB_ID"
 export USE_GPU=1
+source "$PROJECT_ROOT/scripts/job-summary.sh"
 
 mkdir -p "$RUN_DIR/home/.claude" "$RUN_DIR/work"
 chmod 700 "$RUN_DIR/home/.claude"
@@ -66,21 +67,17 @@ else
     flock -n 9 || { echo "Another Claude Code job is using this login; retry later." >&2; exit 1; }
     cp "$AUTH_SRC" "$RUN_DIR/home/.claude/.credentials.json"
     chmod 600 "$RUN_DIR/home/.claude/.credentials.json"
-    persist_auth() {
-        local status=$?
-        trap - EXIT
+    agent_cleanup() {
         if [[ -s "$RUN_DIR/home/.claude/.credentials.json" ]]; then
             local updated
-            updated="$(mktemp "$(dirname "$AUTH_SRC")/credentials-update.XXXXXX")" || exit 1
+            updated="$(mktemp "$(dirname "$AUTH_SRC")/credentials-update.XXXXXX")" || return 1
             if ! cp "$RUN_DIR/home/.claude/.credentials.json" "$updated" || ! mv -f "$updated" "$AUTH_SRC"; then
                 echo "Failed to persist Claude Code authentication; inspect the run credential file." >&2
-                exit 1
+                return 1
             fi
             chmod 600 "$AUTH_SRC"
         fi
-        exit "$status"
     }
-    trap persist_auth EXIT
 fi
 
 # Make the fixed task tools available in the container workspace.

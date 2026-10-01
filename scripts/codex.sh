@@ -42,6 +42,7 @@ test -f "$EXPERIMENT_CONFIG"
 export AGENT=codex
 export RUN_DIR="$PROJECT_ROOT/runs/${SLURM_JOB_NAME:-codex-task}-$SLURM_JOB_ID"
 export USE_GPU=1
+source "$PROJECT_ROOT/scripts/job-summary.sh"
 
 mkdir -p \
     "$RUN_DIR/home/.codex" \
@@ -63,20 +64,16 @@ command -v flock >/dev/null
 exec 9>"$(dirname "$AUTH_SRC")/batch.lock"
 flock -n 9 || { echo "Another Codex job is using this login; retry later." >&2; exit 1; }
 cp "$AUTH_SRC" "$RUN_DIR/home/.codex/auth.json"
-persist_auth() {
-    local status=$?
-    trap - EXIT
+agent_cleanup() {
     if [[ -s "$RUN_DIR/home/.codex/auth.json" ]]; then
         local updated
-        updated=$(mktemp "$(dirname "$AUTH_SRC")/auth-update.XXXXXX") || exit 1
+        updated=$(mktemp "$(dirname "$AUTH_SRC")/auth-update.XXXXXX") || return 1
         if ! cp "$RUN_DIR/home/.codex/auth.json" "$updated" || ! mv -f "$updated" "$AUTH_SRC"; then
             echo "Failed to persist Codex authentication; inspect the run auth file." >&2
-            exit 1
+            return 1
         fi
     fi
-    exit "$status"
 }
-trap persist_auth EXIT
 cat > "$RUN_DIR/home/.codex/config.toml" <<'EOF'
 cli_auth_credentials_store = "file"
 EOF

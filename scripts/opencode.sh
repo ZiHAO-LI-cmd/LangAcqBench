@@ -38,6 +38,8 @@ fi
 test -f "$EXPERIMENT_CONFIG"
 export RUN_DIR="$PROJECT_ROOT/runs/${SLURM_JOB_NAME:-opencode-task}-$SLURM_JOB_ID"
 export USE_GPU=1
+export AGENT=opencode
+source "$PROJECT_ROOT/scripts/job-summary.sh"
 
 mkdir -p \
     "$RUN_DIR/home/.local/share/opencode" \
