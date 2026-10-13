@@ -37,6 +37,13 @@ except (OSError, KeyError, ValueError, OverflowError) as exc:
     sys.exit(f"Invalid experiment config: {exc}")
 PY
 )"
+# Fail before requesting a GPU if the mode, template or configuration is invalid.
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+preview="$(mktemp)"
+trap 'rm -f "$preview"' EXIT
+python3 "$repo_root/scripts/render-prompt.py" --config "$config" --output "$preview"
+rm -f "$preview"
+trap - EXIT
 if (( minutes > 15 )); then
     partition=gpumedium
 else
@@ -57,7 +64,6 @@ model_slug="$(slug "$model")"
 [[ -n "$model_slug" ]] || model_slug=model
 job_name="$agent-$experiment-$model_slug"
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 mkdir -p logs
 sbatch --job-name="$job_name" --time="$minutes" --partition="$partition" \

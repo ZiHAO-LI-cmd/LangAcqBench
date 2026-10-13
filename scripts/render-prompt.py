@@ -6,17 +6,18 @@ import math
 from pathlib import Path
 import re
 
+from experiment_config import REPO_ROOT, experiment_mode, training_entries
+
 TOKEN = re.compile(r"(?<!\{)\{([a-z_][a-z0-9_]*)\}(?!\})")
 
 
 def render(template, config):
-    if not isinstance(config, dict):
-        raise ValueError("Experiment config must be a JSON object")
+    mode = experiment_mode(config)
     required = set(TOKEN.findall(template))
     task_fields = {"translation_directions", "monolingual_tasks"} & required
     optional_fields = task_fields | ({"training_data"} & required)
     missing = required - config.keys() - optional_fields
-    unknown = config.keys() - required
+    unknown = config.keys() - required - {"experiment_mode"}
     if missing:
         raise ValueError("Missing config fields: " + ", ".join(sorted(missing)))
     if unknown:
@@ -30,25 +31,10 @@ def render(template, config):
     if task_fields and not any(config[key] for key in task_fields):
         raise ValueError("At least one translation direction or monolingual task is required")
     if "training_data" in required:
-        config.setdefault("training_data", [])
-        if not isinstance(config["training_data"], list):
-            raise ValueError("training_data must be a list")
-        train_root = (Path(__file__).resolve().parents[1] / "data/train").resolve()
         lines = []
-        for item in config["training_data"]:
-            if not isinstance(item, dict) or set(item) != {"host_path", "agent_path"}:
-                raise ValueError("Each training_data entry needs host_path and agent_path")
-            host_path, agent_path = item["host_path"], item["agent_path"]
-            if not all(isinstance(p, str) and p.strip() and Path(p).is_absolute()
-                       for p in (host_path, agent_path)):
-                raise ValueError("training_data paths must be nonempty absolute paths")
-            host = Path(host_path).resolve()
-            if not host.is_relative_to(train_root) or not host.exists():
-                raise ValueError(f"Training data is missing or outside {train_root}: {host_path}")
-            expected = Path("/data/train") / host.relative_to(train_root)
-            if Path(agent_path) != expected:
-                raise ValueError(f"agent_path for {host_path} must be {expected}")
-            lines.append(f"  - `{agent_path}` (host: `{host_path}`)")
+        for host, agent in training_entries(config):
+            lines.append(f"  - `{agent}`" if mode == "train_only"
+                         else f"  - `{agent}` (host: `{host}`)")
         config["training_data"] = "\n".join(lines) if lines else "  - none specified"
     values = {}
     for key in required:
@@ -74,15 +60,17 @@ def render(template, config):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--template", type=Path, default=Path("prompt.md"))
+    parser.add_argument("--template", type=Path, help="Defaults to the template selected by experiment_mode")
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    if args.output.resolve() in {args.template.resolve(), args.config.resolve()}:
-        parser.error("Output must not overwrite the template or config")
     try:
-        result = render(args.template.read_text(encoding="utf-8"),
-                        json.loads(args.config.read_text(encoding="utf-8")))
+        config = json.loads(args.config.read_text(encoding="utf-8"))
+        mode = experiment_mode(config)
+        template = args.template or REPO_ROOT / ("prompt.train-only.md" if mode == "train_only" else "prompt.md")
+        if args.output.resolve() in {template.resolve(), args.config.resolve()}:
+            parser.error("Output must not overwrite the template or config")
+        result = render(template.read_text(encoding="utf-8"), config)
     except (OSError, ValueError) as exc:
         parser.error(str(exc))
     args.output.parent.mkdir(parents=True, exist_ok=True)

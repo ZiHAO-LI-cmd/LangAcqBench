@@ -20,6 +20,7 @@ scripts/       Evaluator, download helpers, container entry point, Slurm launche
 docs/          Agent-specific operating guides
 configs/       Experiment configuration examples
 prompt.md      Batch-job prompt template
+prompt.train-only.md  Training-only batch-job prompt template
 *.def          Apptainer definitions
 ```
 

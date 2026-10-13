@@ -17,6 +17,36 @@ RUN_DIR="${RUN_DIR:-$DEFAULT_RUN_DIR}"
 mkdir -p "$RUN_DIR/home" "$RUN_DIR/work"
 RUN_DIR="$(cd "$RUN_DIR" && pwd)"
 
+# Read the snapshotted mode for batch jobs; interactive use remains standard.
+if [[ -f "$RUN_DIR/work/experiment.json" ]]; then
+    EXPERIMENT_MODE="$(python3 "$SCRIPT_DIR/experiment_config.py" "$RUN_DIR/work/experiment.json")"
+else
+    EXPERIMENT_MODE="${EXPERIMENT_MODE:-standard}"
+fi
+DATA_ARGS=()
+ISOLATION_ARGS=()
+CONTAINER_HF_HOME="$HF_HOME"
+case "$EXPERIMENT_MODE" in
+    standard)
+        DATA_ARGS+=(--bind "$PROJECT_ROOT/data:/data:ro")
+        ;;
+    train_only)
+        # Do not expose the shared HF cache: it can contain benchmark splits
+        # downloaded by earlier runs. Mount only the configured training paths.
+        CONTAINER_HF_HOME="$RUN_DIR/hf-cache"
+        mkdir -p "$CONTAINER_HF_HOME"
+        TRAIN_BINDS="$(python3 "$SCRIPT_DIR/experiment_config.py" "$RUN_DIR/work/experiment.json" --binds)"
+        while IFS= read -r bind; do
+            DATA_ARGS+=(--bind "$bind")
+        done <<< "$TRAIN_BINDS"
+        # Suppress inherited/site mounts and host process visibility that could
+        # expose test data, evaluation scripts or other run directories.
+        ISOLATION_ARGS+=(--containall --no-mount hostfs,bind-paths,cwd)
+        unset APPTAINER_BIND APPTAINER_BINDPATH SINGULARITY_BIND SINGULARITY_BINDPATH
+        ;;
+    *) echo "Unsupported experiment_mode: $EXPERIMENT_MODE" >&2; exit 2 ;;
+esac
+
 chmod 700 "$RUN_DIR/home"
 
 mkdir -p \
@@ -63,13 +93,14 @@ if [[ "$#" -eq 0 ]]; then
 fi
 
 exec apptainer exec --cleanenv --contain \
+    "${ISOLATION_ARGS[@]}" \
     "${GPU_ARGS[@]}" \
     --home "$RUN_DIR/home:/home/agent" \
     --bind "$RUN_DIR/work:/workspace" \
-    --bind "$HF_HOME:/hf-cache" \
+    --bind "$CONTAINER_HF_HOME:/hf-cache" \
     --bind "$RUNTIME_TMP:/tmp" \
     --bind "$PROJECT_ROOT/models:/models:ro" \
-    --bind "$PROJECT_ROOT/data:/data:ro" \
+    "${DATA_ARGS[@]}" \
     --pwd /workspace \
     --env HF_HOME=/hf-cache \
     --env XDG_CONFIG_HOME=/home/agent/.config \

@@ -18,6 +18,6 @@
       "agent_path": "/data/train/swe_Latn"
     }
   ],
-  "num_hours": 8,
+  "num_hours": 24,
   "gpu_info": "Requested resources: 1 NVIDIA GH200 GPU, 72 CPUs. Inspect actual GPU memory and installed packages before training."
 }

@@ -1,0 +1,14 @@
+{
+  "experiment_mode": "train_only",
+  "model": "SmolLM3-3B",
+  "model_path": "/models/SmolLM3-3B",
+  "languages": ["Swedish (swe_Latn)"],
+  "training_data": [
+    {
+      "host_path": "/scratch/project_2008161/zihao/LangAcqBench/data/train/swe_Latn",
+      "agent_path": "/data/train/swe_Latn"
+    }
+  ],
+  "num_hours": 24,
+  "gpu_info": "Requested resources: 1 NVIDIA GH200 GPU, 72 CPUs. Inspect actual GPU memory and installed packages before training."
+}
