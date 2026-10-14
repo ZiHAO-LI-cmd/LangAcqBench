@@ -7,8 +7,8 @@
 #SBATCH --cpus-per-task=72
 #SBATCH --gres=gpu:gh200:1
 #SBATCH --time=0-00:15:00
-#SBATCH --output=logs/%x-%j.out
-#SBATCH --error=logs/%x-%j.err
+#SBATCH --output=runs/%x-%j/%x-%j.out
+#SBATCH --error=runs/%x-%j/%x-%j.err
 
 set -euo pipefail
 umask 077

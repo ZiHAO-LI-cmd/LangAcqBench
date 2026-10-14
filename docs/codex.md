@@ -14,7 +14,7 @@ The following stable release was available when this integration was prepared:
 
 ```bash
 source env.sh
-mkdir -p containers models data logs
+mkdir -p containers models data runs
 bash scripts/download-codex.sh 0.155.1
 apptainer build --fakeroot --bind="$TMPDIR:/tmp" containers/codex.sif codex.def
 AGENT=codex bash scripts/in-container.sh codex --version
@@ -54,7 +54,7 @@ still overrides the default; `AGENT=codex` selects the image even when running
 ## GPU and batch jobs
 
 ```bash
-mkdir -p logs
+mkdir -p runs
 sbatch --export=ALL,AGENT=codex scripts/gpu-check.sh
 
 # Substitute a model ID available to your Codex account (no OpenCode provider/ prefix).
@@ -74,7 +74,7 @@ minute. It selects `gputest` for at most 15 minutes and `gpumedium` for longer
 jobs. Direct `sbatch scripts/codex.sh ...` still uses the script's 15-minute
 `gputest` defaults. Outputs are in
 `runs/codex-EXPERIMENT-MODEL-JOB_ID/`, with matching
-`logs/codex-EXPERIMENT-MODEL-JOB_ID.{out,err}`. `EXPERIMENT` is the config
+`runs/codex-EXPERIMENT-MODEL-JOB_ID/codex-EXPERIMENT-MODEL-JOB_ID.{out,err}`. `EXPERIMENT` is the config
 filename without `.json`; names are lowercased and shortened if needed. Each
 run contains `agent.jsonl`, `agent.err`, independent `home/`, and `work/`
 containing the rendered prompt, experiment JSON, timer/evaluator and

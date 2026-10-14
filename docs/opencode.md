@@ -12,7 +12,7 @@ cluster-provided writable location before sourcing `env.sh`.
 
 ```bash
 source env.sh
-mkdir -p containers build-opencode models data logs
+mkdir -p containers build-opencode models data runs
 
 # Downloads OpenCode 1.18.30 for Linux ARM64 and records its local checksum.
 bash scripts/download-opencode.sh 1.18.30
@@ -80,16 +80,16 @@ srun --account=project_2008161 --partition=gputest \
 
 ## GPU check and batch jobs
 
-Create `logs/` and submit from the repository root, since Slurm uses the submit
+Submit from the repository root, since Slurm uses the submit
 directory to locate `env.sh`:
 
 ```bash
-mkdir -p logs
+mkdir -p runs
 sbatch scripts/gpu-check.sh
 ```
 
 The check validates CUDA availability and a GPU matrix computation. Inspect it
-with `squeue -u "$USER"` and `cat logs/gpu-check-JOB_ID.out`.
+with `squeue -u "$USER"` and `cat runs/gpu-check-JOB_ID/gpu-check-JOB_ID.out`.
 
 To submit an agent task, first authenticate interactively and choose a complete
 `provider/model` identifier from the model list. Copy and adapt the example
@@ -109,23 +109,23 @@ scripts/submit-agent.sh opencode "$MODEL_ID" configs/my-experiment.json high
 
 The optional argument is passed as `opencode run --variant`; available variants
 depend on the provider/model. The submit helper names each job
-`opencode-EXPERIMENT-MODEL-JOB_ID` in both `runs/` and `logs/`, where
+`opencode-EXPERIMENT-MODEL-JOB_ID` under `runs/`, where
 `EXPERIMENT` comes from the config filename. For example, config
 `my-experiment.json` and model `provider/model` produce
 `runs/opencode-my-experiment-provider-model-JOB_ID/` and matching
-`logs/opencode-my-experiment-provider-model-JOB_ID.{out,err}`. The launcher
+`runs/opencode-my-experiment-provider-model-JOB_ID/opencode-my-experiment-provider-model-JOB_ID.{out,err}`. The launcher
 copies only `auth.json` into an isolated job home, snapshots and renders the
 prompt/configuration, initializes the timer, and writes OpenCode events to
 `agent.jsonl` and errors to `agent.err`. It enables automatic tool permissions,
 so submit only trusted experiments.
 
-The helper accepts paths from any working directory and creates `logs/` before
+The helper accepts paths from any working directory and creates `runs/` before
 submission. It reads `num_hours`, rounds up to whole minutes for Slurm, and
 selects `gputest` for up to 15 minutes or `gpumedium` above 15 minutes.
 Direct `sbatch scripts/opencode.sh ...` remains available for
 custom Slurm flags; its default name is `opencode-task-JOB_ID`. Use
 `sbatch --job-name=NAME scripts/opencode.sh ...` to give direct submissions a
-descriptive name in both directories.
+descriptive name for its run directory and log files.
 
 ```bash
 tail -f runs/opencode-my-experiment-provider-model-JOB_ID/agent.jsonl

@@ -7,8 +7,8 @@
 #SBATCH --cpus-per-task=72
 #SBATCH --gres=gpu:gh200:1
 #SBATCH --time=0-00:15:00
-#SBATCH --output=logs/gpu-check-%j.out
-#SBATCH --error=logs/gpu-check-%j.err
+#SBATCH --output=runs/gpu-check-%j/gpu-check-%j.out
+#SBATCH --error=runs/gpu-check-%j/gpu-check-%j.err
 
 set -euo pipefail
 source "$SLURM_SUBMIT_DIR/env.sh"

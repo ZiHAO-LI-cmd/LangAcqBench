@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Submit an agent job with a readable, shared name for Slurm, logs, and runs.
 # The selected job script appends runtime (hours) and any agent-reported cost
-# to logs/<job-name>-<job-id>.out when it exits.
+# to runs/<job-name>-<job-id>/<job-name>-<job-id>.out when it exits.
 set -euo pipefail
 
 if (( $# < 3 || $# > 4 )); then
@@ -65,6 +65,6 @@ model_slug="$(slug "$model")"
 job_name="$agent-$experiment-$model_slug"
 
 cd "$repo_root"
-mkdir -p logs
+mkdir -p runs
 sbatch --job-name="$job_name" --time="$minutes" --partition="$partition" \
     "scripts/$agent.sh" "$model" "$config" "${@:4}"

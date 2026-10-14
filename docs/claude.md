@@ -13,7 +13,7 @@ writable location before sourcing `env.sh`.
 
 ```bash
 source env.sh
-mkdir -p containers build-claude models data logs
+mkdir -p containers build-claude models data runs
 
 # Prepare a specific official Claude Code version in an isolated temporary home.
 bash scripts/download-claude.sh VERSION
@@ -84,11 +84,11 @@ srun --account=project_2008161 --partition=gputest \
 
 ## GPU check and batch jobs
 
-Create `logs/` and submit from the repository root, since Slurm uses the submit
+Submit from the repository root, since Slurm uses the submit
 directory to locate `env.sh`:
 
 ```bash
-mkdir -p logs
+mkdir -p runs
 sbatch --export=ALL,AGENT=claude scripts/gpu-check.sh
 ```
 
@@ -124,7 +124,9 @@ initializes the timer, and runs `claude -p` with JSON event output. It stores
 events in `runs/claude-EXPERIMENT-MODEL-JOB_ID/agent.jsonl`, errors in
 `agent.err`, and the final
 assistant response in `work/agent-final.md`. Each run gets a separate home and
-workspace. The launcher serializes access to the interactive OAuth credential
+workspace. Slurm stdout and stderr are saved as
+`claude-EXPERIMENT-MODEL-JOB_ID.{out,err}` in the same run directory.
+The launcher serializes access to the interactive OAuth credential
 and persists a refreshed credential after the job exits; a concurrent Claude
 batch job using the same login fails immediately rather than waiting for a GPU.
 
