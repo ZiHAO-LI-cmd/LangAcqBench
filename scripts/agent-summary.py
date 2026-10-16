@@ -48,7 +48,7 @@ def reported_cost(agent: str, log: Path) -> Decimal | None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("agent", choices=("opencode", "codex", "claude"))
+    parser.add_argument("agent", choices=("opencode", "codex", "claude", "kimi"))
     parser.add_argument("log", type=Path)
     parser.add_argument("started_at", type=int)
     parser.add_argument("ended_at", type=int)

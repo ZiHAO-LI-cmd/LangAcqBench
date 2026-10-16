@@ -1,7 +1,7 @@
 # LangAcqBench
 
 Apptainer and Slurm setup for running language-acquisition experiments on
-Roihu-GPU with OpenCode, Codex, or Claude Code. The agents share the vLLM base
+Roihu-GPU with OpenCode, Codex, Claude Code, or Kimi Code. The agents share the vLLM base
 image, prompt template, experiment configuration, timer, and translation evaluator.
 
 ## Guides
@@ -12,6 +12,8 @@ image, prompt template, experiment configuration, timer, and translation evaluat
   the same environment.
 - [Claude Code on Roihu](docs/claude.md) — build and use Claude Code CLI in
   the same environment.
+- [Kimi Code on Roihu](docs/kimi.md) — prepare a pinned native release,
+  build its image, authenticate, and submit experiments.
 
 ## Repository layout
 
@@ -26,4 +28,4 @@ prompt.train-only.md  Training-only batch-job prompt template
 
 Local container images, downloaded binaries, credentials, runtime state, run
 outputs, models, datasets, and logs are intentionally ignored by Git. Configure
-the cluster-specific paths in `env.sh` before following either guide.
+the cluster-specific paths in `env.sh` before following a guide.

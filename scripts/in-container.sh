@@ -9,7 +9,8 @@ case "$AGENT" in
     opencode) DEFAULT_RUN_DIR="$PROJECT_ROOT/interactive" ;;
     codex) DEFAULT_RUN_DIR="$PROJECT_ROOT/interactive/codex" ;;
     claude) DEFAULT_RUN_DIR="$PROJECT_ROOT/interactive/claude" ;;
-    *) echo "Unsupported AGENT: $AGENT (expected opencode, codex, or claude)" >&2; exit 2 ;;
+    kimi) DEFAULT_RUN_DIR="$PROJECT_ROOT/interactive/kimi" ;;
+    *) echo "Unsupported AGENT: $AGENT (expected opencode, codex, claude, or kimi)" >&2; exit 2 ;;
 esac
 
 # The interactive environment is used by default; for batch jobs, a separate directory can be specified using RUN_DIR.
@@ -67,6 +68,10 @@ case "$AGENT" in
     claude)
         CREDENTIAL_DIR="$RUN_DIR/home/.claude"
         CREDENTIAL_FILE="$CREDENTIAL_DIR/.credentials.json"
+        ;;
+    kimi)
+        CREDENTIAL_DIR="$RUN_DIR/home/.kimi-code/credentials"
+        CREDENTIAL_FILE="$CREDENTIAL_DIR/kimi-code.json"
         ;;
 esac
 mkdir -p "$CREDENTIAL_DIR"

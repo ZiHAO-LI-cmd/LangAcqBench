@@ -1,0 +1,33 @@
+Bootstrap: localimage
+From: ./containers/vllm-0-19-1-base.sif
+
+%files
+    ./build-kimi/kimi /usr/local/bin/kimi
+    ./build-kimi/version.txt /opt/kimi/version.txt
+    ./build-kimi/platform.txt /opt/kimi/platform.txt
+    ./build-kimi/kimi.sha256 /opt/kimi/kimi.sha256
+
+%post
+    set -eu
+    chmod 755 /usr/local/bin/kimi
+    mkdir -p /opt/kimi /home/agent /workspace /hf-cache
+    (cd /usr/local/bin && sha256sum -c /opt/kimi/kimi.sha256)
+    python3 -m pip install --no-cache-dir 'sacrebleu==2.5.1'
+    python3 -m pip freeze > /opt/kimi/python-requirements.txt
+    cat > /usr/local/bin/vllm-python <<'EOF'
+#!/bin/sh
+exec /usr/bin/python3 "$@"
+EOF
+    chmod 755 /usr/local/bin/vllm-python
+
+%environment
+    export PATH="/usr/local/bin:$PATH"
+    export PYTHONNOUSERSITE=1
+    export KIMI_CODE_HOME=/home/agent/.kimi-code
+    export KIMI_CODE_NO_AUTO_UPDATE=1
+
+%test
+    set -eu
+    /usr/local/bin/kimi --version
+    (cd /usr/local/bin && sha256sum -c /opt/kimi/kimi.sha256)
+    vllm-python -c 'import torch, vllm, sacrebleu, sentencepiece, pyarrow; print("vLLM:", vllm.__version__, "Torch:", torch.__version__, "CUDA:", torch.version.cuda)'

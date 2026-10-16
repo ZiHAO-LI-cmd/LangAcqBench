@@ -5,7 +5,7 @@
 set -euo pipefail
 
 if (( $# < 3 || $# > 4 )); then
-    echo "Usage: scripts/submit-agent.sh {opencode|codex|claude} MODEL EXPERIMENT_CONFIG [REASONING_OR_EFFORT_LEVEL]" >&2
+    echo "Usage: scripts/submit-agent.sh {opencode|codex|claude|kimi} MODEL EXPERIMENT_CONFIG [REASONING_OR_EFFORT_LEVEL]" >&2
     exit 2
 fi
 
@@ -13,7 +13,7 @@ agent="$1"
 model="$2"
 config="$3"
 case "$agent" in
-    opencode|codex|claude) ;;
+    opencode|codex|claude|kimi) ;;
     *) echo "Unknown agent: $agent" >&2; exit 2 ;;
 esac
 [[ -n "$model" ]] || { echo "MODEL must not be empty" >&2; exit 2; }
