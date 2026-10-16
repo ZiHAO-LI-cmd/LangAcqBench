@@ -14,8 +14,8 @@ cluster-provided writable location before sourcing `env.sh`.
 source env.sh
 mkdir -p containers build-opencode models data runs
 
-# Downloads OpenCode 1.18.30 for Linux ARM64 and records its local checksum.
-bash scripts/download-opencode.sh 1.18.30
+# Downloads OpenCode 1.19.2 for Linux ARM64 and records its local checksum.
+bash scripts/download-opencode.sh 1.19.2
 
 # First obtain the prepared vLLM base image if it is not already present.
 apptainer pull containers/vllm-0-19-1-base.sif \
