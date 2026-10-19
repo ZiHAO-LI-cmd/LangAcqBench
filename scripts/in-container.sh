@@ -10,7 +10,8 @@ case "$AGENT" in
     codex) DEFAULT_RUN_DIR="$PROJECT_ROOT/interactive/codex" ;;
     claude) DEFAULT_RUN_DIR="$PROJECT_ROOT/interactive/claude" ;;
     kimi) DEFAULT_RUN_DIR="$PROJECT_ROOT/interactive/kimi" ;;
-    *) echo "Unsupported AGENT: $AGENT (expected opencode, codex, claude, or kimi)" >&2; exit 2 ;;
+    antigravity) DEFAULT_RUN_DIR="$PROJECT_ROOT/interactive/antigravity" ;;
+    *) echo "Unsupported AGENT: $AGENT (expected opencode, codex, claude, kimi, or antigravity)" >&2; exit 2 ;;
 esac
 
 # The interactive environment is used by default; for batch jobs, a separate directory can be specified using RUN_DIR.
@@ -73,6 +74,10 @@ case "$AGENT" in
         CREDENTIAL_DIR="$RUN_DIR/home/.kimi-code/credentials"
         CREDENTIAL_FILE="$CREDENTIAL_DIR/kimi-code.json"
         ;;
+    antigravity)
+        CREDENTIAL_DIR="$RUN_DIR/home/.gemini/antigravity-cli"
+        CREDENTIAL_FILE="$CREDENTIAL_DIR/settings.json"
+        ;;
 esac
 mkdir -p "$CREDENTIAL_DIR"
 chmod 700 "$CREDENTIAL_DIR"
@@ -94,7 +99,11 @@ if [[ "${USE_GPU:-0}" == "1" ]]; then
 fi
 
 if [[ "$#" -eq 0 ]]; then
-    set -- "$AGENT"
+    if [[ "$AGENT" == antigravity ]]; then
+        set -- agy
+    else
+        set -- "$AGENT"
+    fi
 fi
 
 exec apptainer exec --cleanenv --contain \

@@ -13,6 +13,9 @@
 # Downloaded Kimi Code release materials are local build inputs.
 /build-kimi/
 
+# Downloaded Antigravity CLI release materials are local build inputs.
+/build-antigravity/
+
 # Runtime homes, credentials, sessions, and generated work
 /interactive/
 /runs/

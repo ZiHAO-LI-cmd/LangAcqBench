@@ -1,0 +1,32 @@
+Bootstrap: localimage
+From: ./containers/vllm-0-19-1-base.sif
+
+%files
+    ./build-antigravity/agy /usr/local/bin/agy
+    ./build-antigravity/version.txt /opt/antigravity/version.txt
+    ./build-antigravity/platform.txt /opt/antigravity/platform.txt
+    ./build-antigravity/release.json /opt/antigravity/release.json
+    ./build-antigravity/agy.sha256 /opt/antigravity/agy.sha256
+
+%post
+    set -eu
+    chmod 755 /usr/local/bin/agy
+    mkdir -p /opt/antigravity /home/agent /workspace /hf-cache
+    (cd /usr/local/bin && sha256sum -c /opt/antigravity/agy.sha256)
+    python3 -m pip install --no-cache-dir 'sacrebleu==2.5.1'
+    python3 -m pip freeze > /opt/antigravity/python-requirements.txt
+    cat > /usr/local/bin/vllm-python <<'EOF'
+#!/bin/sh
+exec /usr/bin/python3 "$@"
+EOF
+    chmod 755 /usr/local/bin/vllm-python
+
+%environment
+    export PATH="/usr/local/bin:$PATH"
+    export PYTHONNOUSERSITE=1
+
+%test
+    set -eu
+    /usr/local/bin/agy --version
+    (cd /usr/local/bin && sha256sum -c /opt/antigravity/agy.sha256)
+    vllm-python -c 'import torch, vllm, sacrebleu, sentencepiece, pyarrow; print("vLLM:", vllm.__version__, "Torch:", torch.__version__, "CUDA:", torch.version.cuda)'

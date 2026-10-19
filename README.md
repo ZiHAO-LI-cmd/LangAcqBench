@@ -1,8 +1,9 @@
 # LangAcqBench
 
 Apptainer and Slurm setup for running language-acquisition experiments on
-Roihu-GPU with OpenCode, Codex, Claude Code, or Kimi Code. The agents share the vLLM base
-image, prompt template, experiment configuration, timer, and translation evaluator.
+Roihu-GPU with OpenCode, Codex, Claude Code, Kimi Code, or Antigravity CLI.
+The agents share the vLLM base image, prompt template, experiment configuration,
+timer, and translation evaluator.
 
 ## Guides
 
@@ -14,6 +15,8 @@ image, prompt template, experiment configuration, timer, and translation evaluat
   the same environment.
 - [Kimi Code on Roihu](docs/kimi.md) — prepare a pinned native release,
   build its image, authenticate, and submit experiments.
+- [Antigravity CLI on Roihu](docs/antigravity.md) — prepare the native `agy`
+  binary, build its image, and submit experiments with Gemini API key authentication.
 
 ## Repository layout
 
