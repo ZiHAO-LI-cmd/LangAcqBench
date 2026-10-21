@@ -1,0 +1,33 @@
+Bootstrap: localimage
+From: ./containers/vllm-0-19-1-base.sif
+
+%files
+    ./build-grok/grok /usr/local/bin/grok
+    ./build-grok/version.txt /opt/grok/version.txt
+    ./build-grok/platform.txt /opt/grok/platform.txt
+    ./build-grok/url.txt /opt/grok/url.txt
+    ./build-grok/grok.sha256 /opt/grok/grok.sha256
+
+%post
+    set -eu
+    chmod 755 /usr/local/bin/grok
+    mkdir -p /opt/grok /home/agent /workspace /hf-cache
+    (cd /usr/local/bin && sha256sum -c /opt/grok/grok.sha256)
+    python3 -m pip install --no-cache-dir 'sacrebleu==2.5.1'
+    python3 -m pip freeze > /opt/grok/python-requirements.txt
+    cat > /usr/local/bin/vllm-python <<'EOF'
+#!/bin/sh
+exec /usr/bin/python3 "$@"
+EOF
+    chmod 755 /usr/local/bin/vllm-python
+
+%environment
+    export PATH="/usr/local/bin:$PATH"
+    export PYTHONNOUSERSITE=1
+    export GROK_DISABLE_AUTOUPDATER=1
+
+%test
+    set -eu
+    /usr/local/bin/grok --version
+    (cd /usr/local/bin && sha256sum -c /opt/grok/grok.sha256)
+    vllm-python -c 'import torch, vllm, sacrebleu, sentencepiece, pyarrow; print("vLLM:", vllm.__version__, "Torch:", torch.__version__, "CUDA:", torch.version.cuda)'

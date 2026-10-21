@@ -16,6 +16,9 @@
 # Downloaded Antigravity CLI release materials are local build inputs.
 /build-antigravity/
 
+# Downloaded Grok Build release materials are local build inputs.
+/build-grok/
+
 # Runtime homes, credentials, sessions, and generated work
 /interactive/
 /runs/

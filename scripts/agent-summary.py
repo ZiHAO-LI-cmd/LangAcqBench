@@ -27,7 +27,7 @@ def reported_cost(agent: str, log: Path) -> Decimal | None:
             if agent == "opencode" and event.get("type") == "step_finish":
                 part = event.get("part")
                 value = part.get("cost") if isinstance(part, dict) else None
-            elif agent == "claude" and event.get("type") == "result":
+            elif agent in {"claude", "grok"} and event.get("type") == "result":
                 value = event.get("total_cost_usd")
             else:
                 continue
@@ -48,7 +48,7 @@ def reported_cost(agent: str, log: Path) -> Decimal | None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("agent", choices=("opencode", "codex", "claude", "kimi", "antigravity"))
+    parser.add_argument("agent", choices=("opencode", "codex", "claude", "kimi", "antigravity", "grok"))
     parser.add_argument("log", type=Path)
     parser.add_argument("started_at", type=int)
     parser.add_argument("ended_at", type=int)

@@ -11,7 +11,8 @@ case "$AGENT" in
     claude) DEFAULT_RUN_DIR="$PROJECT_ROOT/interactive/claude" ;;
     kimi) DEFAULT_RUN_DIR="$PROJECT_ROOT/interactive/kimi" ;;
     antigravity) DEFAULT_RUN_DIR="$PROJECT_ROOT/interactive/antigravity" ;;
-    *) echo "Unsupported AGENT: $AGENT (expected opencode, codex, claude, kimi, or antigravity)" >&2; exit 2 ;;
+    grok) DEFAULT_RUN_DIR="$PROJECT_ROOT/interactive/grok" ;;
+    *) echo "Unsupported AGENT: $AGENT (expected opencode, codex, claude, kimi, antigravity, or grok)" >&2; exit 2 ;;
 esac
 
 # The interactive environment is used by default; for batch jobs, a separate directory can be specified using RUN_DIR.
@@ -77,6 +78,10 @@ case "$AGENT" in
     antigravity)
         CREDENTIAL_DIR="$RUN_DIR/home/.gemini/antigravity-cli"
         CREDENTIAL_FILE="$CREDENTIAL_DIR/settings.json"
+        ;;
+    grok)
+        CREDENTIAL_DIR="$RUN_DIR/home/.grok"
+        CREDENTIAL_FILE="$CREDENTIAL_DIR/auth.json"
         ;;
 esac
 mkdir -p "$CREDENTIAL_DIR"
