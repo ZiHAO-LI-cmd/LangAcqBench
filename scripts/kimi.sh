@@ -18,10 +18,13 @@ if (( $# < 2 || $# > 3 )); then
     echo "Usage: sbatch scripts/kimi.sh MODEL_ALIAS EXPERIMENT_CONFIG [EFFORT_LEVEL]" >&2
     exit 2
 fi
-# Accept the common submission interface while keeping the configured thinking
-# settings authoritative. Kimi has no corresponding effort CLI flag here.
-if (( $# == 3 )); then
-    printf 'Kimi: ignoring effort argument %q; using thinking settings from config.toml.\n' "$3" >&2
+# Kimi 2.2.0 has no effort CLI flag; override only the copied job config.
+EFFORT_LEVEL="${3:-}"
+if [[ -n "$EFFORT_LEVEL" ]]; then
+    case "$EFFORT_LEVEL" in
+        low|medium|high|xhigh|max) ;;
+        *) echo "Invalid Kimi effort level: $EFFORT_LEVEL (expected low, medium, high, xhigh, max)" >&2; exit 2 ;;
+    esac
 fi
 source "$SLURM_SUBMIT_DIR/env.sh"
 MODEL_ID="${1:?Please provide a configured Kimi model alias}"
@@ -51,6 +54,13 @@ command -v flock >/dev/null
 exec 9>"$KIMI_AUTH_HOME/batch.lock"
 flock -n 9 || { echo "Another Kimi job is using this login; retry later." >&2; exit 1; }
 install -m 600 "$KIMI_AUTH_HOME/config.toml" "$KIMI_RUN_HOME/config.toml"
+if [[ -n "$EFFORT_LEVEL" ]]; then
+    # Use the image's Python 3.12/tomllib, not the host Python. Feed the helper
+    # through stdin so it also works with train_only's restricted mounts.
+    USE_GPU=0 bash "$PROJECT_ROOT/scripts/in-container.sh" \
+        python3 - /home/agent/.kimi-code/config.toml "$MODEL_ID" "$EFFORT_LEVEL" \
+        < "$PROJECT_ROOT/scripts/set-kimi-effort.py"
+fi
 shopt -s nullglob
 AUTH_FILES=("$KIMI_AUTH_HOME/credentials/"*.json)
 for credential in "${AUTH_FILES[@]}"; do

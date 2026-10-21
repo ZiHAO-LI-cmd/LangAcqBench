@@ -6,9 +6,12 @@ as the other agents. The integration targets the native **Kimi Code 2.2.0**
 release (`MoonshotAI/kimi-code`), with ARM64 as the download default for Roihu's
 GH200 nodes. It does not use the older Python `kimi-cli` distribution.
 
-This change supplies scripts and documentation only. No CLI was downloaded,
-installed, or launched; no image was built and no Slurm job was submitted.
-All commands below are for you to run when ready.
+For the verified Azure `FW-Kimi-K3` connection, configuration, and API examples,
+see [Azure models](azure-models.md).
+
+The initial integration was checked statically. The separate Azure guide above
+records subsequent container and model-call verification. Build and Slurm
+commands below are operating instructions, not records of completed jobs.
 
 ## Prepare and build
 
@@ -90,19 +93,28 @@ sbatch --export=ALL,AGENT=kimi scripts/gpu-check.sh
 scripts/submit-agent.sh kimi kimi-code/kimi-for-coding \
   configs/smollm3-swedish.example.json
 
-# The common fourth argument is accepted for compatibility; config.toml wins.
+# Override thinking effort for this job only.
 scripts/submit-agent.sh kimi kimi-k3 configs/smollm3-swedish.example.json high
 ```
 
 The submission helper uses `num_hours` to set the Slurm time, rounded up to a
 whole minute. It selects `gputest` for up to 15 minutes and `gpumedium` for longer
 jobs. Direct `sbatch scripts/kimi.sh MODEL_ALIAS CONFIG` retains the script's
-15-minute `gputest` defaults. An optional fourth effort argument is accepted for
-compatibility with the other agents, but is ignored with a notice in the job's
-stderr. Kimi uses the `[thinking]` settings already in your interactive
-`config.toml`; the launcher does not override them. Supported effort levels
-depend on the configured model. `kimi-k3` in the example must be an alias
-defined in your configuration.
+15-minute `gputest` defaults. The optional fourth argument overrides thinking
+effort for that job. The launcher edits only the copied job `config.toml`, sets
+`[thinking].enabled = true`, and writes the requested `[thinking].effort` before
+starting Kimi. Omitting it preserves the copied configuration unchanged.
+
+Kimi 2.2.0 has no `--effort` CLI flag. The helper
+[`scripts/set-kimi-effort.py`](../scripts/set-kimi-effort.py) uses the container's
+Python 3.12 and `tomllib`; no additional package or image rebuild is needed.
+The selected model must explicitly declare `support_efforts`, and the requested
+value must be in that list. For Azure Kimi K3, use `low`, `high`, or `max`.
+The launcher rejects invalid or unsupported levels before model execution.
+Use a plain `[thinking]` table with bare `enabled` / `effort` keys; the helper
+rejects layouts it cannot safely edit and checks that all other parsed settings
+are preserved. It never writes the override back to the interactive home.
+`kimi-k3` in the example must be an alias defined in your configuration.
 
 Each job gets `runs/kimi-EXPERIMENT-MODEL-JOB_ID/` with isolated `home/` and
 `work/`, full JSONL output in `agent.jsonl`, stderr in `agent.err`, and matching
@@ -146,12 +158,21 @@ the lock and duplicate rotating OAuth tokens across jobs.
 
 ## Validation and references
 
-Only static shell/Python syntax checks and diff review were performed for this
-change. Real downloads, release extraction, SIF compatibility, login, GPU access,
-and model execution remain untested. Run the build's test, authenticate, and try
-one short experiment before a sweep. Other versions may change asset names,
+The initial integration received static shell/Python syntax checks and diff
+review. Subsequent Azure API, container CLI, and tool-call checks are recorded in
+[Azure models](azure-models.md); they do not validate OAuth login, GPU access,
+or full Slurm experiments. Run the build's test, configure authentication, and
+try one short experiment before a sweep. Other versions may change asset names,
 configuration paths, permission behavior, or JSONL format; review their official
 references before upgrading.
+
+The effort override also has 12 automated checks in
+[`tests/test_kimi_effort.py`](../tests/test_kimi_effort.py), including launcher
+execution with local Slurm/container substitutes. Real Kimi 2.2.0 request
+capture verifies `low` / `high` / `max` after applying the helper. These checks
+do not submit jobs or allocate GPUs. A further real Azure Kimi Code call using
+the helper's `max` override returned `KIMI_EFFORT_MAX_OK` with exit status 0 and
+empty stderr; the interactive config was verified unchanged.
 
 - [Official releases](https://github.com/MoonshotAI/kimi-code/releases)
 - [2.2.0 command reference](https://github.com/MoonshotAI/kimi-code/blob/%40moonshot-ai/kimi-code%402.2.0/docs/en/reference/kimi-command.md)

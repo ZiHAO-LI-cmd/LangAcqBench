@@ -5,6 +5,9 @@ based on vLLM 0.19.1 and uses the shared prompt template, experiment JSON,
 evaluation tool, and timer. For the parallel Codex integration, see
 [Codex on Roihu](codex.md).
 
+For Azure Kimi K3, DeepSeek V4.1 Flash, and GLM 5.3/Flash configuration, API
+examples, and batch-job setup, see [Azure models](azure-models.md).
+
 ## Build once
 
 Run the following from the repository root on Roihu. Set `TMPDIR` to a

@@ -7,6 +7,8 @@ timer, and translation evaluator.
 
 ## Guides
 
+- [Azure model connections and API usage](docs/azure-models.md) — Kimi K3,
+  DeepSeek V4.1 Flash, and GLM 5.3/Flash configuration, API calls, and batch setup.
 - [OpenCode on Roihu](docs/opencode.md) — build the default OpenCode image,
   authenticate, check GPU access, submit jobs, and evaluate translations.
 - [Codex on Roihu](docs/codex.md) — build and use the standalone Codex CLI in
