@@ -117,9 +117,14 @@ depend on the provider/model. The submit helper names each job
 `my-experiment.json` and model `provider/model` produce
 `runs/opencode-my-experiment-provider-model-JOB_ID/` and matching
 `runs/opencode-my-experiment-provider-model-JOB_ID/opencode-my-experiment-provider-model-JOB_ID.{out,err}`. The launcher
-copies only `auth.json` into an isolated job home, snapshots and renders the
+copies `auth.json` and the selected provider definition from the interactive
+`home/.config/opencode/opencode.json` into an isolated job home, snapshots and renders the
 prompt/configuration, initializes the timer, and writes OpenCode events to
-`agent.jsonl` and errors to `agent.err`. It enables automatic tool permissions,
+`agent.jsonl` and internal error logs to `agent.err`. Custom provider endpoints,
+deployment IDs, credentials and reasoning variants are preserved; other interactive
+settings are not copied. Environment-variable credentials still require the
+corresponding `APPTAINERENV_*` variables in the submission environment.
+It enables automatic tool permissions,
 so submit only trusted experiments.
 
 The helper accepts paths from any working directory and creates `runs/` before

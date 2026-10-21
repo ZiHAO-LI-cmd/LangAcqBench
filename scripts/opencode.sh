@@ -54,17 +54,33 @@ AUTH_SRC="$PROJECT_ROOT/interactive/home/.local/share/opencode/auth.json"
 test -f "$AUTH_SRC"
 cp "$AUTH_SRC" "$RUN_DIR/home/.local/share/opencode/auth.json"
 
-cat > "$RUN_DIR/home/.config/opencode/opencode.json" <<'EOF'
-{
-  "$schema": "https://opencode.ai/config.json",
-  "autoupdate": false,
-  "permission": "allow"
+# Custom provider definitions (deployment IDs, endpoints and variants) live in
+# configuration, not auth.json. Snapshot only the selected provider so jobs do
+# not inherit unrelated interactive agents, plugins or instructions.
+python3 - "$PROJECT_ROOT/interactive/home/.config/opencode/opencode.json" \
+    "$RUN_DIR/home/.config/opencode/opencode.json" "$MODEL_ID" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+source, destination = map(Path, sys.argv[1:3])
+provider_id = sys.argv[3].split("/", 1)[0]
+config = {
+    "$schema": "https://opencode.ai/config.json",
+    "autoupdate": False,
+    "permission": "allow",
 }
-EOF
+if source.exists():
+    providers = json.loads(source.read_text(encoding="utf-8")).get("provider", {})
+    if provider_id in providers:
+        config["provider"] = {provider_id: providers[provider_id]}
+destination.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+PY
 
 PROMPT="$(cat "$RUN_DIR/work/prompt.md")"
 
 srun bash "$PROJECT_ROOT/scripts/in-container.sh" \
-    opencode run --model "$MODEL_ID" "${REASONING_ARGS[@]}" --format json "$PROMPT" \
+    opencode run --print-logs --log-level ERROR \
+    --model "$MODEL_ID" "${REASONING_ARGS[@]}" --format json "$PROMPT" \
     > "$RUN_DIR/agent.jsonl" \
     2> "$RUN_DIR/agent.err"
