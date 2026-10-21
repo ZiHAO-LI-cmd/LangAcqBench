@@ -10,12 +10,12 @@ an OpenCode provider. OpenCode remains the default for existing commands.
 Prepare `containers/vllm-0-19-1-base.sif` as described in the
 [OpenCode guide](opencode.md#build-once).
 Use an explicit version from https://github.com/openai/codex/releases.
-The following stable release was available when this integration was prepared:
+The following version was validated in the Azure retest on 2026-10-22:
 
 ```bash
 source env.sh
 mkdir -p containers models data runs
-bash scripts/download-codex.sh 0.155.1
+bash scripts/download-codex.sh 0.163.0
 apptainer build --fakeroot --bind="$TMPDIR:/tmp" containers/codex.sif codex.def
 AGENT=codex bash scripts/in-container.sh codex --version
 ```
@@ -31,6 +31,16 @@ Nothing installs or upgrades Codex during a job. Building repacks the entire bas
 image; use suitable allocated resources and local temporary disk space.
 
 ## Interactive use and authentication
+
+For Azure `gpt-6-astra`, `gpt-6.1-sol`, and `gpt-6-luna`, use the saved Azure
+profile and API key described in [Azure models](azure-models.md#codex). The existing
+base configuration and OpenAI login are preserved. Azure interactive use is:
+
+```bash
+AGENT=codex bash scripts/in-container.sh codex --profile azure --model gpt-6.1-sol
+```
+
+The login instructions below apply to the original OpenAI authentication path.
 
 ```bash
 # File-backed auth avoids depending on a desktop keyring in the container.
@@ -62,10 +72,13 @@ scripts/submit-agent.sh codex YOUR_CODEX_MODEL configs/smollm3-swedish.example.j
 
 # Optional fourth argument: reasoning effort.
 scripts/submit-agent.sh codex YOUR_CODEX_MODEL configs/smollm3-swedish.example.json high
+
+# Azure: the launcher selects the saved Azure profile and strips azure/.
+scripts/submit-agent.sh codex azure/gpt-6.1-sol configs/smollm3-swedish.example.json max
 ```
 
 The optional effort argument sets `model_reasoning_effort` via Codex's `-c` flag.
-The launcher accepts `none`, `minimal`, `low`, `medium`, `high`, and `xhigh`;
+The launcher accepts `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, and `max`;
 the selected model must support the requested level. Omitting it preserves the
 CLI/model default. See the [Codex configuration reference](https://developers.openai.com/codex/config-reference/).
 
@@ -88,9 +101,15 @@ Run only trusted experiments. Apptainer containment is not a VM security boundar
 the agent can modify its writable home/work and the shared HF cache. Models and
 datasets remain mounted read-only.
 
-## Login refresh and concurrent jobs
+## Authentication and concurrent jobs
 
-The batch runner copies only `auth.json` to the job home, never previous sessions
+Azure-prefixed jobs copy the self-contained
+`interactive/codex/home/.codex/azure.config.toml` profile to the private job home
+as `config.toml` with mode `600`. They use the saved Azure key and Responses API,
+without copying or refreshing OAuth credentials or taking the shared OAuth lock.
+Each Azure job has independent configuration and session state.
+
+For unprefixed models, the batch runner copies only `auth.json` to the job home, never previous sessions
 or arbitrary interactive settings. It writes a clean file-auth configuration.
 On exit, it atomically saves refreshed credentials back to the interactive login,
 while retaining the job's separate session history. A nonblocking `flock` prevents
@@ -105,10 +124,17 @@ do not remove the lock and duplicate an OAuth refresh token across jobs.
 
 ## Validation and limitations
 
-Local checks cover shell syntax and mocked container/job orchestration, including
+The initial local checks covered shell syntax and mocked container/job orchestration, including
 OpenCode defaults, Codex selection, prompt delivery, exit status and auth refresh.
-They do not contact a model or validate a real SIF. Run the build test, login,
-GPU check and one short experiment on Roihu before a sweep. `models/` and `data/`
+The Azure integration additionally passed real Responses API requests and Codex
+file-read tool checks for all three deployments, plus captured `max` effort
+requests. The 2026-10-22 retest confirmed Codex **0.163.0** works for all three
+models at `max`, with no fallback metadata warnings. The earlier Sol/Luna
+warnings from 0.155.1, current results, and offline authentication-routing tests
+are documented in
+[Azure models](azure-models.md#validation). GPU jobs and full experiments remain
+untested. Run the build test, authentication checks, GPU check, and one short
+experiment before a sweep. `models/` and `data/`
 must exist because the container entry point mounts them.
 
 References: [Codex authentication](https://developers.openai.com/codex/auth),

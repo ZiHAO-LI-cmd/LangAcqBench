@@ -23,14 +23,20 @@ fi
 source "$SLURM_SUBMIT_DIR/env.sh"
 
 MODEL_ID="${1:?Please provide a Codex model ID}"
+AZURE_PROVIDER=0
+if [[ "$MODEL_ID" == azure/* ]]; then
+    MODEL_ID="${MODEL_ID#azure/}"
+    [[ -n "$MODEL_ID" ]] || { echo "Azure deployment name must not be empty" >&2; exit 2; }
+    AZURE_PROVIDER=1
+fi
 EXPERIMENT_CONFIG="${2:?Please provide an experiment JSON config path}"
 # Omit the optional level to retain the CLI/model default.
 REASONING_LEVEL="${3:-}"
 REASONING_ARGS=()
 if [[ -n "$REASONING_LEVEL" ]]; then
     case "$REASONING_LEVEL" in
-        none|minimal|low|medium|high|xhigh) ;;
-        *) echo "Invalid Codex reasoning level: $REASONING_LEVEL (expected none, minimal, low, medium, high, xhigh)" >&2; exit 2 ;;
+        none|minimal|low|medium|high|xhigh|max) ;;
+        *) echo "Invalid Codex reasoning level: $REASONING_LEVEL (expected none, minimal, low, medium, high, xhigh, max)" >&2; exit 2 ;;
     esac
     REASONING_ARGS=(-c "model_reasoning_effort=\"$REASONING_LEVEL\"")
 fi
@@ -51,27 +57,38 @@ mkdir -p \
 # Select the experiment mode, snapshot inputs, copy tools and initialize time.
 source "$PROJECT_ROOT/scripts/prepare-agent.sh"
 
-# Keep session history per job, but persist refreshed credentials for later jobs.
-# Fail fast instead of burning a GPU allocation waiting for another auth user.
-AUTH_SRC="$PROJECT_ROOT/interactive/codex/home/.codex/auth.json"
-test -f "$AUTH_SRC"
-command -v flock >/dev/null
-exec 9>"$(dirname "$AUTH_SRC")/batch.lock"
-flock -n 9 || { echo "Another Codex job is using this login; retry later." >&2; exit 1; }
-cp "$AUTH_SRC" "$RUN_DIR/home/.codex/auth.json"
-agent_cleanup() {
-    if [[ -s "$RUN_DIR/home/.codex/auth.json" ]]; then
-        local updated
-        updated=$(mktemp "$(dirname "$AUTH_SRC")/auth-update.XXXXXX") || return 1
-        if ! cp "$RUN_DIR/home/.codex/auth.json" "$updated" || ! mv -f "$updated" "$AUTH_SRC"; then
-            echo "Failed to persist Codex authentication; inspect the run auth file." >&2
-            return 1
-        fi
+# The azure/ prefix selects the private, self-contained Azure provider profile.
+# API-key jobs use independent configuration copies without shared OAuth state.
+if [[ "$AZURE_PROVIDER" == 1 ]]; then
+    AZURE_CONFIG="$PROJECT_ROOT/interactive/codex/home/.codex/azure.config.toml"
+    if [[ ! -s "$AZURE_CONFIG" ]]; then
+        echo "Missing Codex Azure profile: $AZURE_CONFIG" >&2
+        exit 1
     fi
-}
-cat > "$RUN_DIR/home/.codex/config.toml" <<'EOF'
+    install -m 600 "$AZURE_CONFIG" "$RUN_DIR/home/.codex/config.toml"
+else
+    # Keep session history per job, but persist refreshed credentials for later jobs.
+    # Fail fast instead of burning a GPU allocation waiting for another auth user.
+    AUTH_SRC="$PROJECT_ROOT/interactive/codex/home/.codex/auth.json"
+    test -f "$AUTH_SRC"
+    command -v flock >/dev/null
+    exec 9>"$(dirname "$AUTH_SRC")/batch.lock"
+    flock -n 9 || { echo "Another Codex job is using this login; retry later." >&2; exit 1; }
+    cp "$AUTH_SRC" "$RUN_DIR/home/.codex/auth.json"
+    agent_cleanup() {
+        if [[ -s "$RUN_DIR/home/.codex/auth.json" ]]; then
+            local updated
+            updated=$(mktemp "$(dirname "$AUTH_SRC")/auth-update.XXXXXX") || return 1
+            if ! cp "$RUN_DIR/home/.codex/auth.json" "$updated" || ! mv -f "$updated" "$AUTH_SRC"; then
+                echo "Failed to persist Codex authentication; inspect the run auth file." >&2
+                return 1
+            fi
+        fi
+    }
+    cat > "$RUN_DIR/home/.codex/config.toml" <<'EOF'
 cli_auth_credentials_store = "file"
 EOF
+fi
 
 # Approval prompts cannot be answered in a batch job. Full host-user execution
 # is explicit here, matching the existing OpenCode batch tool permissions.
