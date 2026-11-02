@@ -2,7 +2,8 @@
 
 This guide covers Azure model configuration, interactive use, Slurm submission,
 and validation results for OpenCode, Kimi Code, Grok Build, and Codex on Roihu. The
-records cover **2026-10-21–2026-10-22** and apply to **OpenCode 1.19.2**,
+records cover **2026-10-21–2026-10-22**, with a **2026-11-02** Terra check,
+and apply to **OpenCode 1.19.2**,
 **Kimi Code 2.2.0 (native CLI)**, **Grok Build 1.0.62**, and **Codex 0.163.0**.
 The initial Codex 0.155.1 results are retained below for comparison.
 
@@ -34,6 +35,7 @@ All eight deployments use the same Azure resource and API base URL:
 | Grok 4.7 | `grok-4.7` | 10,000,000 | 10,000 |
 | GPT-6 Astra | `gpt-6-astra` | 10,000,000 | 10,000 |
 | GPT-6.1 Sol | `gpt-6.1-sol` | 10,000,000 | 10,000 |
+| GPT-6.1 Terra | `gpt-6.1-terra` | 10,000,000 | 10,000 |
 | GPT-6 Luna | `gpt-6-luna` | 10,000,000 | 10,000 |
 
 | Model | OpenCode identifier | Kimi Code alias | Grok Build alias | Codex submission selector |
@@ -44,6 +46,7 @@ All eight deployments use the same Azure resource and API base URL:
 | Grok 4.7 | — | — | `azure-grok-4.7` | — |
 | GPT-6 Astra | — | — | — | `azure/gpt-6-astra` |
 | GPT-6.1 Sol | — | — | — | `azure/gpt-6.1-sol` |
+| GPT-6.1 Terra | — | — | — | `azure/gpt-6.1-terra` |
 | GPT-6 Luna | — | — | — | `azure/gpt-6-luna` |
 
 The table lists the combinations currently configured and validated. API requests
@@ -111,7 +114,7 @@ scripts/submit-agent.sh AGENT MODEL EXPERIMENT_CONFIG [REASONING_OR_EFFORT_LEVEL
 | OpenCode: Kimi, DeepSeek, GLM | `low`, `high`, `max` | `--variant LEVEL` → `variants.LEVEL.reasoningEffort` → API `reasoning_effort` | Uses model settings; currently `high` for Kimi K3 |
 | Kimi Code: Kimi K3 | `low`, `high`, `max` | Enables `[thinking]` and sets `effort` in the job's configuration copy | Preserves the original configuration; `high` in the example |
 | Grok Build: Grok 4.7 | `low`, `medium`, `high`, `xhigh` | `--reasoning-effort LEVEL` → API `reasoning_effort` | Configured default is `high` |
-| Codex: the three GPT deployments | `low` API checks and `max` tool tests / request capture verified on 0.163.0 | `-c model_reasoning_effort=...` → Responses `reasoning.effort` | Azure profile defaults to `medium` |
+| Codex: the four GPT deployments | `low` API checks and `max` tool tests / request capture verified on 0.163.0; Terra checked on 2026-11-02 | `-c model_reasoning_effort=...` → Responses `reasoning.effort` | Azure profile defaults to `medium` |
 
 OpenCode needs `variants`, Kimi Code needs `support_efforts`, and Grok Build
 needs `reasoning_efforts`. Without those definitions, a CLI may exit successfully
@@ -417,7 +420,7 @@ directories. These host-side configuration and script changes need no image rebu
 
 <a id="codex"></a>
 
-## Codex 0.163.0: GPT-6 Astra, GPT-6.1 Sol, and GPT-6 Luna
+## Codex 0.163.0: GPT-6 Astra, GPT-6.1 Sol, GPT-6.1 Terra, and GPT-6 Luna
 
 ### Persistent Azure Profile
 
@@ -447,7 +450,7 @@ env_key = "AZURE_API_KEY"
 ```
 
 Use the resource base URL, not the supplied `/chat/completions` URL: Codex needs
-Responses for its tool workflow. All three deployments were verified through
+Responses for its tool workflow. All four deployments were verified through
 `/openai/v1/responses`. `requires_openai_auth = false` uses the provider key rather
 than a ChatGPT login; `supports_websockets = false` selects HTTP/SSE transport.
 See the [official Codex configuration reference](https://developers.openai.com/codex/config-reference/).
@@ -463,9 +466,10 @@ files or the container image.
 # The Azure profile defaults to gpt-6.1-sol at medium effort.
 AGENT=codex bash scripts/in-container.sh codex --profile azure
 
-# Choose any of the three Azure deployments.
+# Choose any of the four Azure deployments.
 AGENT=codex bash scripts/in-container.sh codex --profile azure --model gpt-6-astra
 AGENT=codex bash scripts/in-container.sh codex --profile azure --model gpt-6.1-sol
+AGENT=codex bash scripts/in-container.sh codex --profile azure --model gpt-6.1-terra
 AGENT=codex bash scripts/in-container.sh codex --profile azure --model gpt-6-luna
 
 # A single request with an explicit effort.
@@ -479,6 +483,7 @@ AGENT=codex bash scripts/in-container.sh codex exec --profile azure \
 ```bash
 scripts/submit-agent.sh codex azure/gpt-6-astra configs/smollm3-swedish.example.json max
 scripts/submit-agent.sh codex azure/gpt-6.1-sol configs/smollm3-swedish.example.json max
+scripts/submit-agent.sh codex azure/gpt-6.1-terra configs/smollm3-swedish.example.json max
 scripts/submit-agent.sh codex azure/gpt-6-luna configs/smollm3-swedish.example.json max
 ```
 
@@ -492,11 +497,19 @@ No image rebuild or credential environment variable is needed with the saved key
 
 The launcher accepts `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, and `max`;
 model support still applies. Official GPT-6 guidance lists `low/medium/high/xhigh/max`
-for Astra and Sol, with `none` also available for Luna. `minimal` is not supported
+for Astra and Sol, with `none` also available for Terra and Luna. The
+[Terra model reference](https://developers.openai.com/api/docs/models/gpt-6.1-terra)
+lists `none/low/medium/high/xhigh/max`. `minimal` is not supported
 by these GPT-6 models. The 0.163.0 retest verified `low` with direct API calls and
 `max` with real file-read tools and captured Responses requests for all three
 deployments. The original 0.155.1 checks also tested tools at `low`. An exhaustive
 matrix of every effort was not run. See [GPT-6 guidance](https://developers.openai.com/api/docs/guides/latest-model).
+
+Terra passed a separate `low` API check and `max` file-read tool check with
+captured requests on 2026-11-02. It uses the same saved Azure provider and key;
+no launcher change, image rebuild, or new login is required. Select it explicitly
+with `--model gpt-6.1-terra` or the batch selector `azure/gpt-6.1-terra`.
+The saved Azure default remains `gpt-6.1-sol` at `medium`.
 
 Codex 0.155.1 reported fallback model metadata for GPT-6.1 Sol and GPT-6 Luna in
 initial tool checks. Those warnings were absent in the 0.163.0 retest for all
@@ -588,7 +601,7 @@ printf 'Authorization: Bearer %s\n' "$AZURE_API_KEY" |
     }'
 ```
 
-Replace `model` with `gpt-6.1-sol` or `gpt-6-luna` for the other deployments.
+Replace `model` with `gpt-6.1-sol`, `gpt-6.1-terra`, or `gpt-6-luna` for the other deployments.
 Responses text is in `output[]` message items, under `content[]` entries with
 `type: "output_text"`; it does not use Chat Completions `choices`.
 
@@ -607,11 +620,12 @@ Responses text is in `output[]` message items, under `content[]` entries with
 | Grok 4.7 | All four documented efforts returned HTTP 200 and `GROK_EFFORT_OK` | All four Grok CLI efforts returned `GROK_CLI_EFFORT_OK`, exit code 0; a full tool-call cycle was not tested |
 | GPT-6 Astra | Responses returned HTTP 200, `completed`, and `AZURE_CODEX_RETEST_API_OK` at `low` on 2026-10-22 | Codex 0.163.0 read the test file at `max` and returned its exact contents, exit code 0; no metadata warning |
 | GPT-6.1 Sol | Responses returned HTTP 200, `completed`, and `AZURE_CODEX_RETEST_API_OK` at `low` on 2026-10-22 | Codex 0.163.0 read the test file at `max` and returned its exact contents, exit code 0; no metadata warning |
+| GPT-6.1 Terra | Responses returned HTTP 200, `completed`, and `AZURE_TERRA_API_OK` at `low` on 2026-11-02 | Codex 0.163.0 read a random marker from a file at `max` and returned it exactly, exit code 0; two captured SSE requests used `reasoning.effort: "max"` and returned HTTP 200 |
 | GPT-6 Luna | Responses returned HTTP 200, `completed`, and `AZURE_CODEX_RETEST_API_OK` at `low` on 2026-10-22 | Codex 0.163.0 read the test file at `max` and returned its exact contents, exit code 0; no metadata warning |
 
 CLI tests used copied configurations in separate `RUN_DIR` directories without
-changing the original interactive configuration. The tool tests above had empty
-stderr. Kimi K3 also passed environment-variable authentication tests in both
+changing the original interactive configuration. The OpenCode and Kimi tool
+tests above had empty stderr. Kimi K3 also passed environment-variable authentication tests in both
 CLIs and a container test combining OpenCode's basic job configuration with
 `OPENCODE_CONFIG_CONTENT`. `GET /openai/v1/models` returned HTTP 200, but the
 catalog response is not proof that a deployment can serve inference requests.
@@ -687,6 +701,28 @@ prompt. The forwarding service sent requests only to this Azure deployment.
 
 ### Codex Azure Responses and Reasoning Effort
 
+#### GPT-6.1 Terra: 2026-11-02
+
+The user-supplied Azure key matched the existing saved provider credential.
+A direct `/openai/v1/responses` request for `gpt-6.1-terra` at `low` returned
+HTTP 200, status `completed`, and exactly `AZURE_TERRA_API_OK`.
+
+The installed container reports **codex-cli 0.163.0**. Using a copied Azure
+profile in a fresh run home, `codex exec --profile azure --model gpt-6.1-terra`
+with `model_reasoning_effort="max"` successfully ran a shell command to read a
+file. It returned the exact random marker, which was absent from the prompt,
+and exited with code 0. A local forwarding service sent requests to the real
+Azure endpoint and recorded only sanitized request fields. Both model requests
+used `/openai/v1/responses`, `model: "gpt-6.1-terra"`, `stream: true`, and
+`reasoning.effort: "max"`; both received HTTP 200.
+
+The only stderr output was `Reading additional input from stdin...`; no model
+metadata warning appeared. Hashes confirmed that the persistent Azure profile,
+base configuration, and OAuth file were unchanged. The existing five offline
+launcher checks and shell syntax checks passed. No Slurm job or GPU work was
+submitted. Other effort levels, full context capacity, and the supplied
+10,000,000 TPM / 10,000 RPM quotas were not load-tested.
+
 #### Codex 0.163.0 retest: 2026-10-22
 
 The installed container and local build metadata both report **0.163.0**.
@@ -745,6 +781,7 @@ These records are in Git-ignored directories:
 | Codex captured `max` requests | `runs/azure-codex-check-20261021/cli-effort-request-summary.json` |
 | Codex 0.163.0 retest | `runs/azure-codex-retest-20261022/summary.json`, `api-results.json`, `cli-results.json`, and `request-summary.json` |
 | Codex 0.163.0 per-model tool logs | `runs/azure-codex-retest-20261022/cli-MODEL/agent.jsonl`, `agent.err`, and `work/agent-final.md`; retest harness: `retest.py` in the parent directory |
+| Codex GPT-6.1 Terra check (2026-11-02) | `runs/azure-codex-terra-check-20261102/api-results.json`, `cli-results.json`, `request-summary.json`, and `cli-max/agent.jsonl`; harness: `check_cli.py` |
 
 ### Validation Scope
 

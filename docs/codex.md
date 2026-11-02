@@ -32,12 +32,15 @@ image; use suitable allocated resources and local temporary disk space.
 
 ## Interactive use and authentication
 
-For Azure `gpt-6-astra`, `gpt-6.1-sol`, and `gpt-6-luna`, use the saved Azure
+For Azure `gpt-6-astra`, `gpt-6.1-sol`, `gpt-6.1-terra`, and `gpt-6-luna`, use the saved Azure
 profile and API key described in [Azure models](azure-models.md#codex). The existing
 base configuration and OpenAI login are preserved. Azure interactive use is:
 
 ```bash
 AGENT=codex bash scripts/in-container.sh codex --profile azure --model gpt-6.1-sol
+
+# GPT-6.1 Terra uses the same saved provider and key.
+AGENT=codex bash scripts/in-container.sh codex --profile azure --model gpt-6.1-terra
 ```
 
 The login instructions below apply to the original OpenAI authentication path.
@@ -75,6 +78,7 @@ scripts/submit-agent.sh codex YOUR_CODEX_MODEL configs/smollm3-swedish.example.j
 
 # Azure: the launcher selects the saved Azure profile and strips azure/.
 scripts/submit-agent.sh codex azure/gpt-6.1-sol configs/smollm3-swedish.example.json max
+scripts/submit-agent.sh codex azure/gpt-6.1-terra configs/smollm3-swedish.example.json max
 ```
 
 The optional effort argument sets `model_reasoning_effort` via Codex's `-c` flag.
@@ -132,7 +136,12 @@ requests. The 2026-10-22 retest confirmed Codex **0.163.0** works for all three
 models at `max`, with no fallback metadata warnings. The earlier Sol/Luna
 warnings from 0.155.1, current results, and offline authentication-routing tests
 are documented in
-[Azure models](azure-models.md#validation). GPU jobs and full experiments remain
+[Azure models](azure-models.md#validation). A separate **2026-11-02** check verified
+GPT-6.1 Terra on the same Codex version: Responses at `low`, a real file-read
+tool at `max`, and two captured SSE requests with `reasoning.effort: "max"`.
+The existing Azure profile already accepts this deployment; no launcher change,
+image rebuild, or new login is needed. The saved default remains GPT-6.1 Sol.
+GPU jobs and full experiments remain
 untested. Run the build test, authentication checks, GPU check, and one short
 experiment before a sweep. `models/` and `data/`
 must exist because the container entry point mounts them.
