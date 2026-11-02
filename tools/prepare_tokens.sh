@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=language-token-prep
-#SBATCH --error=logs/data_prep/%x_%j.err
-#SBATCH --output=logs/data_prep/%x_%j.out
+#SBATCH --error=../logs/data_prep/%x_%j.err
+#SBATCH --output=../logs/data_prep/%x_%j.out
 #SBATCH --account=project_2008161
-#SBATCH --partition=test
-#SBATCH --time=0-00:15:00
+#SBATCH --partition=small
+#SBATCH --time=1-00:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
@@ -25,6 +25,7 @@ MONO_PERCENT="${MONO_PERCENT:-60}"
 PARALLEL_PERCENT="${PARALLEL_PERCENT:-40}"
 TOKENIZER_WORKERS="${TOKENIZER_WORKERS:-${SLURM_CPUS_PER_TASK:-8}}"
 TOKENIZE_BATCH_SIZE="${TOKENIZE_BATCH_SIZE:-256}"
+ALIGNMENT_BATCH_SIZE="${ALIGNMENT_BATCH_SIZE:-50000}"
 
 cd "${PROJECT_DIR}"
 
@@ -41,6 +42,7 @@ args=(
     --parallel-percent "${PARALLEL_PERCENT}"
     --workers "${TOKENIZER_WORKERS}"
     --tokenize-batch-size "${TOKENIZE_BATCH_SIZE}"
+    --alignment-batch-size "${ALIGNMENT_BATCH_SIZE}"
     --overwrite
 )
 if [[ -n "${PARALLEL_MODEL:-}" ]]; then

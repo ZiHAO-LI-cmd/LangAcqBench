@@ -6,12 +6,11 @@ and aligned pairs are retained, so actual counts can fall below the budgets.
 """
 
 import argparse
+from contextlib import closing
 import io
 import json
 import os
-import sqlite3
 import sys
-import tempfile
 import time
 from pathlib import Path
 
@@ -45,6 +44,8 @@ def parse_args():
                    help="Parallel tokenizer workers; defaults to CPUs allocated by Slurm.")
     p.add_argument("--tokenize-batch-size", type=int, default=256,
                    help="Texts submitted per tokenizer batch.")
+    p.add_argument("--alignment-batch-size", type=int, default=50_000,
+                   help="Target rows per in-memory alignment batch; no full partner database is built.")
     p.add_argument("--overwrite", action="store_true", help="Replace existing output files.")
     return p.parse_args()
 
@@ -158,12 +159,42 @@ def batches(items, batch_size):
         yield batch
 
 
+def aligned_rows(language_files, partner_files, id_column, text_column,
+                 progress_seconds, batch_size):
+    """Join bounded target batches in source order without storing the partner corpus.
+
+    Each batch streams the partner shards until every requested ID is found or
+    the source is exhausted. Duplicate partner IDs keep their first occurrence.
+    Later target batches are read only if the consumer still needs more tokens.
+    """
+    targets = parquet_rows(language_files, id_column, text_column, "parallel-target", progress_seconds)
+    with closing(targets):
+        for batch_number, target_batch in enumerate(batches(targets, batch_size), 1):
+            pending = {row_id for row_id, _ in target_batch}
+            matches = {}
+            print(f"[alignment] batch={batch_number} target_rows={len(target_batch):,} "
+                  f"unique_ids={len(pending):,}; streaming partner", flush=True)
+            with closing(parquet_rows(partner_files, id_column, text_column,
+                                      "parallel-partner", progress_seconds)) as partners:
+                for row_id, text in partners:
+                    if row_id in pending:
+                        matches[row_id] = text
+                        pending.remove(row_id)
+                        if not pending:
+                            break
+            print(f"[alignment] batch={batch_number} matched_ids={len(matches):,} "
+                  f"unmatched_ids={len(pending):,}", flush=True)
+            for row_id, text in target_batch:
+                if row_id in matches:
+                    yield row_id, text, matches[row_id]
+
+
 def main():
     a = parse_args()
     if a.total_tokens <= 0 or a.mono_percent < 0 or a.parallel_percent < 0:
         raise SystemExit("total tokens must be positive and percentages non-negative")
-    if a.workers < 1 or a.tokenize_batch_size < 1:
-        raise SystemExit("workers and tokenize-batch-size must be positive")
+    if a.workers < 1 or a.tokenize_batch_size < 1 or a.alignment_batch_size < 1:
+        raise SystemExit("workers, tokenize-batch-size and alignment-batch-size must be positive")
     if abs(a.mono_percent + a.parallel_percent - 100) > 1e-8:
         raise SystemExit("mono-percent + parallel-percent must equal 100")
     if a.language == a.parallel_language:
@@ -196,90 +227,75 @@ def main():
     counters = {"mono_tokens": 0, "mono_rows": 0, "parallel_language_tokens": 0,
                 "parallel_partner_tokens": 0, "parallel_rows": 0}
 
-    # SQLite makes partner-side lookup bounded-memory for very large parquet inputs.
-    with tempfile.TemporaryDirectory(prefix="language-token-prep-") as tmp:
-        db = sqlite3.connect(os.path.join(tmp, "partner.sqlite"))
-        db.execute("CREATE TABLE partner (id TEXT PRIMARY KEY, text TEXT)")
-        db.execute("PRAGMA journal_mode=OFF")
-        db.execute("PRAGMA synchronous=OFF")
-        print(f"[partner-index] building {a.parallel_language} ID-to-text lookup in temporary SQLite database", flush=True)
-        db.executemany("INSERT OR IGNORE INTO partner VALUES (?, ?)",
-                       parquet_rows(partner_files, a.id_column, a.text_column, "partner-index", a.progress_seconds))
-        db.commit()
-        print("[partner-index] lookup complete", flush=True)
-
-        mono_schema = pa.schema([("id", pa.string()), ("text", pa.string()), ("num_tokens", pa.int64())])
-        mono_writer = pq.ParquetWriter(mono_out, mono_schema, compression="zstd")
-        mono_batch = []
-        try:
-            print(f"[mono] target={mono_target:,} tokens", flush=True)
-            mono_done = False
-            for input_batch in batches(mono_records(mono_files, a.progress_seconds), a.tokenize_batch_size):
-                token_ids = enc.encode_ordinary_batch([text for _, text in input_batch], num_threads=a.workers)
-                for (row_id, text), ids in zip(input_batch, token_ids):
-                    n = len(ids)
-                    if counters["mono_tokens"] + n > mono_target:
-                        mono_done = True
-                        break
-                    mono_batch.append({"id": str(row_id), "text": text, "num_tokens": n})
-                    counters["mono_tokens"] += n
-                    counters["mono_rows"] += 1
-                    if counters["mono_rows"] % 100_000 == 0:
-                        print(f"[mono] selected rows={counters['mono_rows']:,} tokens={counters['mono_tokens']:,}/{mono_target:,}", flush=True)
-                    if len(mono_batch) >= 4096:
-                        mono_writer.write_table(pa.Table.from_pylist(mono_batch, schema=mono_schema))
-                        mono_batch.clear()
-                if mono_done:
+    mono_schema = pa.schema([("id", pa.string()), ("text", pa.string()), ("num_tokens", pa.int64())])
+    mono_writer = pq.ParquetWriter(mono_out, mono_schema, compression="zstd")
+    mono_batch = []
+    try:
+        print(f"[mono] target={mono_target:,} tokens", flush=True)
+        mono_done = False
+        for input_batch in batches(mono_records(mono_files, a.progress_seconds), a.tokenize_batch_size):
+            token_ids = enc.encode_ordinary_batch([text for _, text in input_batch], num_threads=a.workers)
+            for (row_id, text), ids in zip(input_batch, token_ids):
+                n = len(ids)
+                if counters["mono_tokens"] + n > mono_target:
+                    mono_done = True
                     break
-            if mono_batch:
-                mono_writer.write_table(pa.Table.from_pylist(mono_batch, schema=mono_schema))
-        finally:
-            mono_writer.close()
+                mono_batch.append({"id": str(row_id), "text": text, "num_tokens": n})
+                counters["mono_tokens"] += n
+                counters["mono_rows"] += 1
+                if counters["mono_rows"] % 100_000 == 0:
+                    print(f"[mono] selected rows={counters['mono_rows']:,} tokens={counters['mono_tokens']:,}/{mono_target:,}", flush=True)
+                if len(mono_batch) >= 4096:
+                    mono_writer.write_table(pa.Table.from_pylist(mono_batch, schema=mono_schema))
+                    mono_batch.clear()
+            if mono_done:
+                break
+        if mono_batch:
+            mono_writer.write_table(pa.Table.from_pylist(mono_batch, schema=mono_schema))
+    finally:
+        mono_writer.close()
 
-        parallel_schema = pa.schema([
-            ("id", pa.string()), (f"{a.language}_text", pa.string()),
-            (f"{a.parallel_language}_text", pa.string()), (f"{a.language}_tokens", pa.int64()),
-            (f"{a.parallel_language}_tokens", pa.int64()),
-        ])
-        parallel_writer = pq.ParquetWriter(parallel_out, parallel_schema, compression="zstd")
-        parallel_batch = []
-        try:
-            print(f"[parallel] target={parallel_target:,} combined {a.language}+{a.parallel_language} tokens", flush=True)
-            paired_rows = ((row_id, language_text, partner_row[0])
-                           for row_id, language_text in parquet_rows(language_files, a.id_column, a.text_column,
-                                                                "parallel-target", a.progress_seconds)
-                           for partner_row in [db.execute("SELECT text FROM partner WHERE id=?", (row_id,)).fetchone()]
-                           if partner_row)
-            parallel_done = False
-            for input_batch in batches(paired_rows, a.tokenize_batch_size):
-                all_texts = [text for _, language_text, partner_text in input_batch for text in (language_text, partner_text)]
-                token_ids = enc.encode_ordinary_batch(all_texts, num_threads=a.workers)
-                for i, (row_id, language_text, partner_text) in enumerate(input_batch):
-                    language_n = len(token_ids[2 * i])
-                    partner_n = len(token_ids[2 * i + 1])
-                    if (counters["parallel_language_tokens"] + counters["parallel_partner_tokens"]
-                            + language_n + partner_n > parallel_target):
-                        parallel_done = True
-                        break
-                    parallel_batch.append({"id": row_id, f"{a.language}_text": language_text,
-                        f"{a.parallel_language}_text": partner_text, f"{a.language}_tokens": language_n,
-                        f"{a.parallel_language}_tokens": partner_n})
-                    counters["parallel_language_tokens"] += language_n
-                    counters["parallel_partner_tokens"] += partner_n
-                    counters["parallel_rows"] += 1
-                    if counters["parallel_rows"] % 100_000 == 0:
-                        done = counters["parallel_language_tokens"] + counters["parallel_partner_tokens"]
-                        print(f"[parallel] selected rows={counters['parallel_rows']:,} tokens={done:,}/{parallel_target:,}", flush=True)
-                    if len(parallel_batch) >= 4096:
-                        parallel_writer.write_table(pa.Table.from_pylist(parallel_batch, schema=parallel_schema))
-                        parallel_batch.clear()
-                if parallel_done:
+    parallel_schema = pa.schema([
+        ("id", pa.string()), (f"{a.language}_text", pa.string()),
+        (f"{a.parallel_language}_text", pa.string()), (f"{a.language}_tokens", pa.int64()),
+        (f"{a.parallel_language}_tokens", pa.int64()),
+    ])
+    parallel_writer = pq.ParquetWriter(parallel_out, parallel_schema, compression="zstd")
+    parallel_batch = []
+    paired_rows = aligned_rows(language_files, partner_files, a.id_column, a.text_column,
+                               a.progress_seconds, a.alignment_batch_size)
+    try:
+        print(f"[parallel] target={parallel_target:,} combined {a.language}+{a.parallel_language} tokens", flush=True)
+        parallel_done = False
+        for input_batch in batches(paired_rows, a.tokenize_batch_size):
+            all_texts = [text for _, language_text, partner_text in input_batch for text in (language_text, partner_text)]
+            token_ids = enc.encode_ordinary_batch(all_texts, num_threads=a.workers)
+            for i, (row_id, language_text, partner_text) in enumerate(input_batch):
+                language_n = len(token_ids[2 * i])
+                partner_n = len(token_ids[2 * i + 1])
+                if (counters["parallel_language_tokens"] + counters["parallel_partner_tokens"]
+                        + language_n + partner_n > parallel_target):
+                    parallel_done = True
                     break
-            if parallel_batch:
-                parallel_writer.write_table(pa.Table.from_pylist(parallel_batch, schema=parallel_schema))
-        finally:
-            parallel_writer.close()
-        db.close()
+                parallel_batch.append({"id": row_id, f"{a.language}_text": language_text,
+                    f"{a.parallel_language}_text": partner_text, f"{a.language}_tokens": language_n,
+                    f"{a.parallel_language}_tokens": partner_n})
+                counters["parallel_language_tokens"] += language_n
+                counters["parallel_partner_tokens"] += partner_n
+                counters["parallel_rows"] += 1
+                if counters["parallel_rows"] % 100_000 == 0:
+                    done = counters["parallel_language_tokens"] + counters["parallel_partner_tokens"]
+                    print(f"[parallel] selected rows={counters['parallel_rows']:,} tokens={done:,}/{parallel_target:,}", flush=True)
+                if len(parallel_batch) >= 4096:
+                    parallel_writer.write_table(pa.Table.from_pylist(parallel_batch, schema=parallel_schema))
+                    parallel_batch.clear()
+            if parallel_done:
+                break
+        if parallel_batch:
+            parallel_writer.write_table(pa.Table.from_pylist(parallel_batch, schema=parallel_schema))
+    finally:
+        paired_rows.close()
+        parallel_writer.close()
 
     print(json.dumps({"tokenizer": "o200k_base", "language": a.language,
         "parallel_language": a.parallel_language, "total_target_tokens": a.total_tokens,
