@@ -19,7 +19,7 @@ source env.sh
 mkdir -p containers models data runs
 
 # Explicit version, ARM64 by default for GH200. Does not execute agy.
-bash scripts/download-antigravity.sh 1.4.0 arm64
+bash scripts/download-antigravity.sh 1.4.6 arm64
 
 # If the shared base image is not already available:
 apptainer pull containers/vllm-0-19-1-base.sif \
@@ -47,7 +47,7 @@ Archive the build inputs for reproducibility. A saved manifest can be supplied
 later while its upstream payload remains available:
 
 ```bash
-bash scripts/download-antigravity.sh 1.4.0 arm64 /path/to/saved/release.json
+bash scripts/download-antigravity.sh 1.4.6 arm64 /path/to/saved/release.json
 ```
 
 `amd64` (also `x64`) selects the other Linux artifact. The base image, build
@@ -130,6 +130,24 @@ The optional effort is passed as `--effort`. Recognized levels are `low`,
 `medium`, `high`, `xhigh`, and `max`; availability depends on the selected
 model. See the official [effort reference](https://antigravity.google/docs/cli/commands/effort/).
 
+For Gemini 4 Argon, CLI **1.4.6** accepts `low`, `medium`, and `high`:
+
+```bash
+bash scripts/submit-agent.sh antigravity gemini-4-argon \
+  configs/smollm3-swedish.train-only.example.json high
+```
+
+`REASONING_OR_EFFORT_LEVEL` in the helper's usage is the optional fourth
+positional argument, not an environment variable. The helper forwards it as
+the third argument to `antigravity.sh`, which invokes
+`agy --model gemini-4-argon --effort high`. For this model, `xhigh` and `max`
+pass the launcher's generic level check but are rejected by the CLI. Omit the
+fourth argument to leave effort selection to the CLI; with fresh batch settings,
+the bare `gemini-4-argon` model selected `medium` in the validation below.
+When using a suffixed model such as `gemini-4-argon-high`, keep the fourth
+argument consistent with that suffix or omit it. A conflicting level is rejected
+by the CLI; prefer the bare model name when selecting effort separately.
+
 Each job creates an isolated home/work under
 `runs/antigravity-EXPERIMENT-MODEL-JOB_ID/`, snapshots the experiment, and
 creates minimal provider settings. It does not copy interactive hooks,
@@ -159,10 +177,35 @@ token counts. Treat job homes, logs, and exported credentials as private.
 
 ## Validation
 
-Only static syntax checks and diff review were performed. Release download
-and extraction, SIF build/runtime compatibility, provider/model access, GPU
-execution, and end-to-end experiments remain untested. When you choose to run
-the commands, start with the image's version/import tests, the GPU check, and
-one short experiment before a sweep. Review upstream references when changing
-versions; the [download page](https://antigravity.google/download/?os=linux)
-and current manifest can report different versions.
+The initial integration received static syntax checks and diff review.
+On **2026-10-23**, the updated container reported CLI **1.4.6**, and
+`agy models` listed the Argon low/medium/high variants. Read-only `/effort`
+commands confirmed these three levels and rejected `xhigh` and `max`.
+
+The unchanged submission, batch, preparation, and container scripts were then
+executed in an isolated fixture with simulated `sbatch`/`srun`, the real SIF
+and CLI, a dummy API key, and a local Gemini-compatible HTTP endpoint. Captured
+requests to `models/gemini-4-argon:streamGenerateContent` contained:
+
+| Fourth argument | `generationConfig.thinkingConfig.thinkingLevel` | Result |
+| --- | --- | --- |
+| `low` | `LOW` | Passed |
+| `medium` | `MEDIUM` | Passed |
+| `high` | `HIGH` | Passed |
+| omitted, bare model | `MEDIUM` | Passed with no `--effort` flag |
+| `high` or omitted, model `gemini-4-argon-high` | `HIGH` | Passed |
+| `low`, model `gemini-4-argon-high` | No generation request | Rejected: conflicting model suffix and effort |
+| `xhigh` / `max` | No generation request | Rejected by CLI |
+| `invalid` | No generation request | Rejected by batch script |
+
+Successful cases also produced the expected `work/agent-final.md` from the
+local endpoint's response. The persistent interactive settings remained
+unchanged. Local evidence and the replay script are under
+`runs/antigravity-effort-hmibt34l/` (ignored by Git).
+
+These checks verify argument forwarding and actual HTTP request construction.
+They did not submit Slurm jobs, enable GPUs, or call Google's inference API;
+remote key/model access and full training experiments were not tested.
+Review upstream references when changing versions; the
+[download page](https://antigravity.google/download/?os=linux) and current
+manifest can report different versions.

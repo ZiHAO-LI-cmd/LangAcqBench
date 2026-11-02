@@ -30,8 +30,7 @@ All eight deployments use the same Azure resource and API base URL:
 | --- | --- | --- | --- |
 | Kimi K3 | `FW-Kimi-K3` | 250,000 | 250 |
 | DeepSeek V4.1 Flash | `DeepSeek-V4.1-Flash` | 1,000,000 | 1,000 |
-| GLM 5.3 | `FW-GLM-5.3` | 125,000 | 125 |
-| GLM 5.3 Flash | `FW-GLM-5.3-Flash` | 125,000 | 125 |
+| GLM 5.3 | `FW-GLM-5.3` | 250,000 | 250 |
 | Grok 4.7 | `grok-4.7` | 10,000,000 | 10,000 |
 | GPT-6 Astra | `gpt-6-astra` | 10,000,000 | 10,000 |
 | GPT-6.1 Sol | `gpt-6.1-sol` | 10,000,000 | 10,000 |
@@ -42,7 +41,6 @@ All eight deployments use the same Azure resource and API base URL:
 | Kimi K3 | `azure-kimi/kimi-k3` | `kimi-k3` | — | — |
 | DeepSeek V4.1 Flash | `azure-deepseek/deepseek-v4.1-flash` | — | — | — |
 | GLM 5.3 | `azure-glm/glm-5.3` | — | — | — |
-| GLM 5.3 Flash | `azure-glm/glm-5.3-flash` | — | — | — |
 | Grok 4.7 | — | — | `azure-grok-4.7` | — |
 | GPT-6 Astra | — | — | — | `azure/gpt-6-astra` |
 | GPT-6.1 Sol | — | — | — | `azure/gpt-6.1-sol` |
@@ -131,7 +129,7 @@ Repository paths are listed in the [configuration table](#credentials). A native
 installation reads `~/.config/opencode/opencode.json` by default. The current
 default model is `azure-kimi/kimi-k3`.
 
-The standalone example below covers all four models. Merge the provider/model
+The standalone example below covers all three configured models. Merge the provider/model
 tables into an existing configuration while preserving other connections. If
 `opencode.jsonc` exists, check it for conflicting settings as well:
 
@@ -196,15 +194,6 @@ tables into an existing configuration while preserving other connections. If
             "high": {"reasoningEffort": "high"},
             "max": {"reasoningEffort": "max"}
           }
-        },
-        "glm-5.3-flash": {
-          "id": "FW-GLM-5.3-Flash",
-          "name": "GLM 5.3 Flash (Azure)",
-          "variants": {
-            "low": {"reasoningEffort": "low"},
-            "high": {"reasoningEffort": "high"},
-            "max": {"reasoningEffort": "max"}
-          }
         }
       }
     }
@@ -216,10 +205,13 @@ Keys in the `models` table are local aliases; `id` is the deployment name sent
 to the API. When `options.apiKey` explicitly references an environment variable,
 these providers need no `auth login`.
 
-All four models define `low`, `high`, and `max` variants. Kimi K3 has a model-level
+All three models define `low`, `high`, and `max` variants. Kimi K3 has a model-level
 default of `high`; DeepSeek and GLM have no added model-level effort default or
 unverified context limit. See [custom providers](https://opencode.ai/docs/providers/#custom-provider)
 and [configuration environment variables](https://opencode.ai/docs/config/#env-vars).
+
+GLM 5.3 Flash was removed from the OpenCode configuration on 2026-10-22.
+Its earlier validation results are retained below as historical records.
 
 ### Interactive Sessions and Single Requests
 
@@ -233,10 +225,9 @@ bash scripts/in-container.sh opencode models azure-glm
 bash scripts/in-container.sh opencode --model azure-kimi/kimi-k3
 bash scripts/in-container.sh opencode --model azure-deepseek/deepseek-v4.1-flash
 bash scripts/in-container.sh opencode --model azure-glm/glm-5.3
-bash scripts/in-container.sh opencode --model azure-glm/glm-5.3-flash
 
 # Single request; replace the --model identifier to use another model.
-bash scripts/in-container.sh opencode run --model azure-glm/glm-5.3-flash \
+bash scripts/in-container.sh opencode run --model azure-glm/glm-5.3 \
   --format json 'Reply with exactly AZURE_MODEL_OK.'
 ```
 
