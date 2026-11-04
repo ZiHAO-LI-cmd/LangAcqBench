@@ -168,7 +168,7 @@ class Translator:
         tokenizer_path = (args.tokenizer or (model_path if (model_path / 'tokenizer_config.json').exists() else base)).resolve()
         if not tokenizer_path.is_dir():
             raise ValueError(f'Tokenizer directory not found: {tokenizer_path}')
-        engine_options = dict(model=str(base), tokenizer=str(tokenizer_path), trust_remote_code=False,
+        engine_options = dict(model=str(base), tokenizer=str(tokenizer_path), trust_remote_code=True,
                               dtype='auto', tensor_parallel_size=args.tensor_parallel_size,
                               gpu_memory_utilization=args.gpu_memory_utilization,
                               seed=args.seed, generation_config='vllm', enable_lora=adapter)
