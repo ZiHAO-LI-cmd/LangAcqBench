@@ -52,22 +52,48 @@ keeps this home separate from OpenCode and Codex. Protect this file as a secret.
 An Anthropic Console/API login may incur API charges separate from a Claude
 subscription.
 
-To use an Anthropic Console API key instead, create a key in the Console and
-provide it as `ANTHROPIC_API_KEY` to Claude Code. The wrapper uses Apptainer's
-`APPTAINERENV_` convention to pass it through `--cleanenv`; this does not save
-the key in the image or run directory. For an interactive session:
+To use an Anthropic Console API key instead, save it once in the repository's
+ignored `.env` file. From the repository root:
 
 ```bash
-read -rsp 'Anthropic API key: ' CLAUDE_API_KEY
-printf '\n'
-export APPTAINERENV_ANTHROPIC_API_KEY="$CLAUDE_API_KEY"
-unset CLAUDE_API_KEY
+# Create once; preserve an existing .env if you already have one.
+(umask 077; cp -n .env.example .env)
+chmod 600 .env
+${EDITOR:-vi} .env
+```
+
+Fill in `ANTHROPIC_API_KEY` in that file:
+
+```dotenv
+ANTHROPIC_API_KEY=your-anthropic-api-key
+```
+
+The shared `env.sh` automatically reads `.env` on interactive startup and at
+batch job startup, then exports `APPTAINERENV_ANTHROPIC_API_KEY` so Apptainer
+passes it through `--cleanenv`. No manual `export` or container rebuild is needed:
+
+```bash
 AGENT=claude bash scripts/in-container.sh claude
 ```
 
-On first use, approve the key when prompted. In later sessions, set the
-environment variable again; `ANTHROPIC_API_KEY` takes precedence over a saved
-subscription OAuth login.
+On first use, approve the key when prompted. `ANTHROPIC_API_KEY` takes precedence
+over a saved subscription OAuth login. The file remains on the host; the loader
+does not copy it into the image or run directory. Keep it private and out of Git
+(`.env` is already ignored).
+
+Only the Anthropic and Gemini API key variables (with or without the
+`APPTAINERENV_` prefix) are loaded. Use one `KEY=value` per line; optional
+`export` and surrounding single/double quotes are accepted. Values are literal:
+shell commands, variable expansion, escape processing, and inline comments are
+not supported. Put comments on separate lines. Existing nonempty environment
+values take priority: `APPTAINERENV_ANTHROPIC_API_KEY`, then `ANTHROPIC_API_KEY`,
+then the corresponding prefixed/unprefixed values in the file. Unset an old
+shell override before switching back to the file.
+
+To use a file outside the repository, set
+`LANGACQBENCH_ENV_FILE=/absolute/path/to/keys.env` for the launch (export it
+before direct `sbatch` submissions). A missing file is allowed so existing OAuth
+and manually exported key workflows continue to work.
 
 The default interactive workspace is `interactive/claude/work`. Set `RUN_DIR`
 to use a different home and workspace. For an interactive GPU session, request
@@ -103,21 +129,18 @@ scripts/submit-agent.sh claude sonnet configs/smollm3-swedish.example.json high
 ```
 
 The batch launcher supports the Console API key without an OAuth login file.
-To submit with a key, enter it silently in the shell, export it for Slurm, and
-remove it from the current shell after the job is submitted:
+After filling in `.env`, submit normally:
 
 ```bash
-read -rsp 'Anthropic API key: ' CLAUDE_API_KEY
-printf '\n'
-export APPTAINERENV_ANTHROPIC_API_KEY="$CLAUDE_API_KEY"
-unset CLAUDE_API_KEY
 scripts/submit-agent.sh claude sonnet configs/smollm3-swedish.example.json
-unset APPTAINERENV_ANTHROPIC_API_KEY
 ```
 
-The key is injected into the container by Apptainer and takes precedence over
-any saved OAuth credential. Without the key, the launcher uses the interactive
-OAuth credential and its concurrency lock as described below.
+The job reads the file when it starts, so keep it available on the shared
+filesystem until queued jobs start. File edits affect future job startups;
+already running jobs keep their loaded key. An exported shell key takes priority
+over the file when Slurm forwards it (normally `--export=ALL`). The key is
+injected into the container by Apptainer. Without a key, the launcher uses the
+interactive OAuth credential and its concurrency lock as described below.
 
 The launcher renders and snapshots the prompt and experiment configuration,
 initializes the timer, and runs `claude -p` with JSON event output. It stores

@@ -63,6 +63,36 @@ The supplied batch runner uses Gemini API key authentication. Official
 require both `modelProvider: gemini` in settings and `GEMINI_API_KEY` in the
 process environment. A key alone does not select this provider.
 
+Save the key once in the repository's ignored `.env` file:
+
+```bash
+# Run from the repository root; preserve an existing .env.
+(umask 077; cp -n .env.example .env)
+chmod 600 .env
+${EDITOR:-vi} .env
+```
+
+Fill in the Gemini key (the same file can also hold `ANTHROPIC_API_KEY`):
+
+```dotenv
+GEMINI_API_KEY=your-gemini-api-key
+```
+
+The shared `env.sh` automatically reads this file on interactive startup and at
+batch job startup, exporting `APPTAINERENV_GEMINI_API_KEY`. No manual `export`
+or image rebuild is needed. Keep `.env` private; Git already ignores it, and the
+loader does not copy it into job homes or the container image.
+
+Only Anthropic/Gemini key variables, with or without the `APPTAINERENV_` prefix,
+are loaded. Use one `KEY=value` per line; optional `export` and surrounding
+single/double quotes are accepted. Values are literal: no shell commands,
+variable expansion, escape processing, or inline comments. Use separate comment
+lines. Nonempty environment values win: `APPTAINERENV_GEMINI_API_KEY`, then
+`GEMINI_API_KEY`, then the file's prefixed/unprefixed values. Unset old shell
+overrides when switching back to the file. To choose another file, set
+`LANGACQBENCH_ENV_FILE=/absolute/path/to/keys.env` for the launch (export it
+before direct `sbatch`). A missing file is allowed for manual-key workflows.
+
 For interactive use, create the provider settings once:
 
 ```bash
@@ -77,11 +107,6 @@ cat > interactive/antigravity/home/.gemini/antigravity-cli/settings.json <<'JSON
 }
 JSON
 chmod 600 interactive/antigravity/home/.gemini/antigravity-cli/settings.json
-
-# Read without putting the key into shell history or a command argument.
-read -r -s -p 'Gemini API key: ' APPTAINERENV_GEMINI_API_KEY
-printf '\n'
-export APPTAINERENV_GEMINI_API_KEY
 
 AGENT=antigravity bash scripts/in-container.sh agy models
 AGENT=antigravity bash scripts/in-container.sh
@@ -102,8 +127,8 @@ API and its billing/access rules, rather than a signed-in account session.
 
 ## Submit experiments
 
-Keep the exported key in the submitting shell. Select a model slug reported
-by `agy models` for your provider:
+After filling in `.env`, select a model slug reported by `agy models` for your
+provider:
 
 ```bash
 MODEL_SLUG='replace-with-a-model-slug-from-agy-models'
@@ -115,16 +140,15 @@ bash scripts/submit-agent.sh antigravity "$MODEL_SLUG" \
 
 bash scripts/submit-agent.sh antigravity "$MODEL_SLUG" \
   configs/smollm3-swedish.train-only.example.json
-
-# After your submissions; Slurm has already captured the exported environment.
-unset APPTAINERENV_GEMINI_API_KEY
 ```
 
 The submission helper derives Slurm duration from `num_hours`, rounds up to a
 minute, and selects `gputest` for at most 15 minutes or `gpumedium` otherwise.
 Direct `sbatch scripts/antigravity.sh MODEL CONFIG [EFFORT]` keeps the launcher's
-15-minute defaults. Slurm must export the submitting environment (normally
-`ALL`); restricted export policies require explicit key forwarding.
+15-minute defaults. Jobs read `.env` at startup, so keep the file available on
+the shared filesystem until queued jobs start. Edits affect future startups;
+running jobs retain their loaded key. If you use exported keys or a custom
+`LANGACQBENCH_ENV_FILE`, Slurm must forward those variables (normally `ALL`).
 
 The optional effort is passed as `--effort`. Recognized levels are `low`,
 `medium`, `high`, `xhigh`, and `max`; availability depends on the selected
