@@ -40,7 +40,11 @@ def reported_cost(agent: str, log: Path) -> Decimal | None:
                 continue
             if not amount.is_finite() or amount < 0:
                 continue
-            total += amount
+            if agent == "claude":
+                # Claude reports cumulative session cost in each result.
+                total = amount
+            else:
+                total += amount
             found = True
 
     return total if found else None
