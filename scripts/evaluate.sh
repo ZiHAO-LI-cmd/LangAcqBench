@@ -137,6 +137,7 @@ translation_output="${translation_output:-$RUN_DIR/translation.json}"
 srun python -u "$PROJECT_DIR/scripts/evaluate-mt.py" \
     --model "$MODEL" \
     --test-dir "$PROJECT_DIR/data/test" \
+    --dev-dir "$PROJECT_DIR/data/dev" \
     --n-shot 3 \
     --output "$RUN_DIR/translation.json" \
     "${evaluator_args[@]}"
