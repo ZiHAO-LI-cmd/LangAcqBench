@@ -1,7 +1,6 @@
 {
-  "experiment_mode": "train_only",
-  "model": "SmolLM3-3B",
-  "model_path": "/models/SmolLM3-3B",
+  "model": "SmolLM3-3B-Base",
+  "model_path": "/models/SmolLM3-3B-Base",
   "languages": [
     "Icelandic (isl_Latn)"
   ],
