@@ -17,8 +17,8 @@ AGENT=codex bash scripts/in-container.sh codex --version
 The helper downloads the complete official ARM64 package, verifies its release
 checksum, and records package-file checksums under `build-codex/`. Keep the
 package intact: tool execution needs its companion executables and resources.
-The image build checks package contents, starts the daemon, and checks Python
-evaluation dependencies; a version check alone does not cover tool startup.
+The image build verifies package-file checksums, prints the CLI version, and
+checks Python evaluation dependencies.
 
 ## Interactive use and authentication
 
