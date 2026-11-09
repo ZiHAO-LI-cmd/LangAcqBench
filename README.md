@@ -7,8 +7,10 @@ timer, and translation evaluator.
 
 ## Guides
 
+- [Shared agent workflow](docs/agent-common.md) — environment and base image,
+  API-key forwarding, GPU allocation, submission rules, and logs.
 - [Azure model connections and API usage](docs/azure-models.md) — Kimi K3,
-  DeepSeek V4.1 Flash, GLM 5.3/Flash, Grok 4.7, and GPT-6 configuration,
+  DeepSeek V4.1 Flash, GLM 5.3, Grok 4.7, and GPT-6 configuration,
   API calls, and batch setup across agents.
 - [OpenCode on Roihu](docs/opencode.md) — build the default OpenCode image,
   authenticate, check GPU access, submit jobs, and evaluate translations.

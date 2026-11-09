@@ -1,44 +1,27 @@
 # Claude Code on Roihu
 
-Claude Code runs as a separate CLI in an Apptainer image based on vLLM 0.19.1.
-It shares the prompt template, experiment JSON, evaluation tool, and timer with
-OpenCode and Codex. The container image uses a pinned Claude Code version and
-disables in-job auto-updates. Build the image on Roihu-GPU so the official
-installer selects the target Linux architecture.
+Claude Code uses the repository's shared Apptainer and experiment workflow.
+Follow the [common guide](agent-common.md) for environment setup, the base image,
+GPU allocation, submission rules, and logs.
 
 ## Build once
 
-Run from the repository root on Roihu. Set `TMPDIR` to a cluster-provided
-writable location before sourcing `env.sh`.
+After the [shared setup](agent-common.md#prepare-the-environment):
 
 ```bash
-source env.sh
-mkdir -p containers build-claude models data runs
-
-# Prepare a specific official Claude Code version in an isolated temporary home.
-bash scripts/download-claude.sh VERSION
-
-# First obtain the prepared vLLM base image if it is not already present.
-apptainer pull containers/vllm-0-19-1-base.sif \
-  docker://satama.csc.fi/r_installation_aida/vllm:0.19.1_cuda12.9_roihu
-
+bash scripts/download-claude.sh 2.1.319
 apptainer build --fakeroot --bind="$TMPDIR:/tmp" containers/claude.sif claude.def
 AGENT=claude bash scripts/in-container.sh claude --version
 ```
 
-Replace `VERSION` with the numeric version selected for the experiment records.
-The download helper runs Anthropic's official installer under a temporary
-`HOME`, copies the installed CLI binary into `build-claude/`, and records local
-SHA-256 checksums for the binary and installer. Those checksums document the
-prepared files; they are not an independent upstream signature verification.
-Re-run the helper when intentionally upgrading. Nothing installs or upgrades
-Claude Code during a Slurm job.
-
-If your cluster does not support `--fakeroot`, use the locally supported
-Apptainer build mode instead. Image builds need temporary space beyond the final
-SIF size.
+The helper runs Anthropic's official installer in a temporary home and copies
+the prepared binary into `build-claude/`, recording local SHA-256 checksums for
+the binary and installer. Build on Roihu-GPU so the installer selects the target
+architecture. The image pins that version and disables in-job auto-updates.
 
 ## Interactive use and authentication
+
+For browser login:
 
 ```bash
 AGENT=claude bash scripts/in-container.sh claude auth login
@@ -46,121 +29,49 @@ AGENT=claude bash scripts/in-container.sh claude auth status
 AGENT=claude bash scripts/in-container.sh
 ```
 
-Complete the browser login flow. Claude Code stores Linux login credentials in
-`interactive/claude/home/.claude/.credentials.json`; the container entry point
-keeps this home separate from OpenCode and Codex. Protect this file as a secret.
-An Anthropic Console/API login may incur API charges separate from a Claude
-subscription.
+Credentials are stored in
+`interactive/claude/home/.claude/.credentials.json`; task files use
+`interactive/claude/work/`.
 
-To use an Anthropic Console API key instead, save it once in the repository's
-ignored `.env` file. From the repository root:
+For API-key authentication, set `ANTHROPIC_API_KEY` in the ignored `.env` as
+shown in the [shared key setup](agent-common.md#api-keys-and-clean-environments),
+then launch normally. On first use, approve the key if prompted. The key takes
+precedence over subscription OAuth. Console/API usage is billed separately
+from a Claude subscription.
 
-```bash
-# Create once; preserve an existing .env if you already have one.
-(umask 077; cp -n .env.example .env)
-chmod 600 .env
-${EDITOR:-vi} .env
-```
-
-Fill in `ANTHROPIC_API_KEY` in that file:
-
-```dotenv
-ANTHROPIC_API_KEY=your-anthropic-api-key
-```
-
-The shared `env.sh` automatically reads `.env` on interactive startup and at
-batch job startup, then exports `APPTAINERENV_ANTHROPIC_API_KEY` so Apptainer
-passes it through `--cleanenv`. No manual `export` or container rebuild is needed:
+## Submit experiments
 
 ```bash
-AGENT=claude bash scripts/in-container.sh claude
-```
-
-On first use, approve the key when prompted. `ANTHROPIC_API_KEY` takes precedence
-over a saved subscription OAuth login. The file remains on the host; the loader
-does not copy it into the image or run directory. Keep it private and out of Git
-(`.env` is already ignored).
-
-Only the Anthropic and Gemini API key variables (with or without the
-`APPTAINERENV_` prefix) are loaded. Use one `KEY=value` per line; optional
-`export` and surrounding single/double quotes are accepted. Values are literal:
-shell commands, variable expansion, escape processing, and inline comments are
-not supported. Put comments on separate lines. Existing nonempty environment
-values take priority: `APPTAINERENV_ANTHROPIC_API_KEY`, then `ANTHROPIC_API_KEY`,
-then the corresponding prefixed/unprefixed values in the file. Unset an old
-shell override before switching back to the file.
-
-To use a file outside the repository, set
-`LANGACQBENCH_ENV_FILE=/absolute/path/to/keys.env` for the launch (export it
-before direct `sbatch` submissions). A missing file is allowed so existing OAuth
-and manually exported key workflows continue to work.
-
-The default interactive workspace is `interactive/claude/work`. Set `RUN_DIR`
-to use a different home and workspace. For an interactive GPU session, request
-a GPU first, then set `USE_GPU=1`:
-
-```bash
-srun --account=project_2008161 --partition=gputest \
-  --nodes=1 --ntasks=1 --cpus-per-task=72 \
-  --gres=gpu:gh200:1 --time=0-00:15:00 \
-  --pty env AGENT=claude USE_GPU=1 bash scripts/in-container.sh
-```
-
-`USE_GPU=1` enables Apptainer's `--nv` option; it does not allocate a GPU.
-
-## GPU check and batch jobs
-
-Submit from the repository root, since Slurm uses the submit
-directory to locate `env.sh`:
-
-```bash
-mkdir -p runs
 sbatch --export=ALL,AGENT=claude scripts/gpu-check.sh
+
+bash scripts/submit-agent.sh claude sonnet \
+  configs/smollm3-swedish.example.json high
 ```
 
-Submit a translation experiment with a Claude model alias or model ID available
-to your account:
+Use a model alias or ID available to your account. The optional fourth argument
+becomes `--effort LEVEL`; the launcher accepts `low`, `medium`, `high`, `xhigh`,
+and `max`, subject to model support. Omit it to use the CLI default.
 
-```bash
-scripts/submit-agent.sh claude sonnet configs/smollm3-swedish.example.json
+## Runtime and credentials
 
-# Optional effort level: low, medium, high, xhigh, or max.
-scripts/submit-agent.sh claude sonnet configs/smollm3-swedish.example.json high
-```
+The launcher uses `claude -p --output-format stream-json --verbose`, reads the
+prompt from stdin, and enables unattended tools with
+`--dangerously-skip-permissions`. It saves the final response, when present, to
+`work/agent-final.md` and preserves the CLI exit status.
 
-The batch launcher supports the Console API key without an OAuth login file.
-After filling in `.env`, submit normally:
+API-key jobs receive the key through the environment and do not take the OAuth
+lock. Without a key, the launcher copies the interactive OAuth credential into
+the private job home and atomically saves refreshed credentials on exit. A
+nonblocking lock rejects a second batch job using the same login immediately.
+Avoid interactive login/logout or use of that OAuth login while a batch job is
+active; interactive commands do not acquire the lock. SIGKILL or node failure
+can prevent credential copy-back and require a fresh login.
 
-```bash
-scripts/submit-agent.sh claude sonnet configs/smollm3-swedish.example.json
-```
+## Validation and references
 
-The job reads the file when it starts, so keep it available on the shared
-filesystem until queued jobs start. File edits affect future job startups;
-already running jobs keep their loaded key. An exported shell key takes priority
-over the file when Slurm forwards it (normally `--export=ALL`). The key is
-injected into the container by Apptainer. Without a key, the launcher uses the
-interactive OAuth credential and its concurrency lock as described below.
+The build and submission commands are operating instructions, not validation
+records. Check the installed CLI version and authentication before a short run;
+inspect [logs and requested artifacts](agent-common.md#outputs-and-monitoring)
+to establish completion.
 
-The launcher renders and snapshots the prompt and experiment configuration,
-initializes the timer, and runs `claude -p` with JSON event output. It stores
-events in `runs/claude-EXPERIMENT-MODEL-JOB_ID/agent.jsonl`, errors in
-`agent.err`, and the final
-assistant response in `work/agent-final.md`. Each run gets a separate home and
-workspace. Slurm stdout and stderr are saved as
-`claude-EXPERIMENT-MODEL-JOB_ID.{out,err}` in the same run directory.
-The launcher serializes access to the interactive OAuth credential
-and persists a refreshed credential after the job exits; a concurrent Claude
-batch job using the same login fails immediately rather than waiting for a GPU.
-
-Batch jobs use Claude Code's permission bypass because no one can answer
-interactive prompts. This grants the agent autonomous tool execution in the
-job environment. Apptainer containment is not a VM security boundary; submit
-only trusted prompts. Models and datasets are mounted read-only, while the run
-home and workspace are writable.
-
-The submit helper sets the Slurm time from `num_hours`, rounded up to a whole
-minute. It selects `gputest` for at most 15 minutes and `gpumedium` for longer
-jobs. Direct `sbatch scripts/claude.sh ...` still uses the script's 15-minute
-`gputest` defaults. `models/` and `data/` must
-exist because the container entry point mounts them.
+- [Claude Code documentation](https://code.claude.com/docs/en/overview)

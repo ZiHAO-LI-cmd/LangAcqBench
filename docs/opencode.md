@@ -1,146 +1,75 @@
 # OpenCode on Roihu
 
-OpenCode is the default agent in this repository. It runs in an Apptainer image
-based on vLLM 0.19.1 and uses the shared prompt template, experiment JSON,
-evaluation tool, and timer. For the parallel Codex integration, see
-[Codex on Roihu](codex.md).
-
-For Azure Kimi K3, DeepSeek V4.1 Flash, and GLM 5.3/Flash configuration, API
-examples, and batch-job setup, see [Azure models](azure-models.md).
+OpenCode is the repository's default agent. Follow the
+[shared workflow](agent-common.md) for environment setup, the base image, GPU
+allocation, submission rules, and logs. Azure Kimi K3, DeepSeek V4.1 Flash, and
+GLM 5.3 configuration is in [Azure models](azure-models.md#opencode).
 
 ## Build once
 
-Run the following from the repository root on Roihu. Set `TMPDIR` to a
-cluster-provided writable location before sourcing `env.sh`.
+After the [shared setup](agent-common.md#prepare-the-environment):
 
 ```bash
-source env.sh
-mkdir -p containers build-opencode models data runs
-
-# Downloads OpenCode 1.19.2 for Linux ARM64 and records its local checksum.
-bash scripts/download-opencode.sh 1.19.2
-
-# First obtain the prepared vLLM base image if it is not already present.
-apptainer pull containers/vllm-0-19-1-base.sif \
-  docker://satama.csc.fi/r_installation_aida/vllm:0.19.1_cuda12.9_roihu
-
+bash scripts/download-opencode.sh 1.19.5
 apptainer build --fakeroot --bind="$TMPDIR:/tmp" containers/opencode.sif opencode.def
-bash scripts/in-container.sh opencode --version
+AGENT=opencode bash scripts/in-container.sh opencode --version
 ```
 
-The download helper fetches the official `opencode-linux-arm64.tar.gz` release
-asset, extracts only its `opencode` executable, and writes
-`build-opencode/opencode.sha256`. This is a local provenance check, not an
-independent upstream signature verification. Keep the archive and checksum with
-the experiment records. Re-run the helper when intentionally upgrading OpenCode;
-nothing downloads or upgrades the CLI during a job.
-
-The final image copies the executable to `/usr/local/bin/opencode`, records its
-checksum, reuses the vLLM/PyTorch base environment, and installs SacreBLEU 2.5.1.
-Build tests validate the CLI and Python evaluation dependencies. GPU inference
-must still be checked in a Slurm allocation.
-
-If your cluster does not support `--fakeroot`, use the locally supported
-Apptainer build mode instead. Image builds need temporary space beyond the final
-SIF size.
+The helper downloads the official Linux ARM64 release archive, extracts the
+executable, and records a local SHA-256 in `build-opencode/`. The image verifies
+the checksum and checks the CLI and Python evaluation dependencies.
 
 ## Interactive use and authentication
 
 ```bash
-bash scripts/in-container.sh opencode --version
-bash scripts/in-container.sh opencode auth login
-bash scripts/in-container.sh
+AGENT=opencode bash scripts/in-container.sh opencode auth login
+AGENT=opencode bash scripts/in-container.sh opencode models
+AGENT=opencode bash scripts/in-container.sh
 ```
 
-Follow the login prompts to select and authenticate a provider. Credentials are
-stored under `interactive/home/.local/share/opencode/auth.json`. List currently
-available models with:
+Follow the provider login prompts. Credentials are in
+`interactive/home/.local/share/opencode/auth.json`; custom providers are defined
+in `interactive/home/.config/opencode/opencode.json`. Put task inputs in
+`interactive/work/`. Use a complete `provider/model` identifier from the model
+list. Azure providers with explicit API-key references need no provider login;
+the batch launcher still requires the local `auth.json` file.
+
+## Submit experiments
 
 ```bash
-bash scripts/in-container.sh opencode models > opencode_models.txt
-```
-
-Put interactive task inputs in `interactive/work/`; generated files are saved
-there too. The container entry point uses `--cleanenv --contain` and mounts:
-
-| Host path | Container path | Purpose |
-| --- | --- | --- |
-| `$RUN_DIR/home` | `/home/agent` | Credentials, configuration, caches, sessions |
-| `$RUN_DIR/work` | `/workspace` | Task files and outputs |
-| `$HF_HOME` | `/hf-cache` | Shared Hugging Face cache |
-| `$TMPDIR/opencode-${SLURM_JOB_ID:-interactive}` | `/tmp` | Runtime temporary files |
-
-For interactive GPU work, request a GPU first, then set `USE_GPU=1`:
-
-```bash
-srun --account=project_2008161 --partition=gputest \
-  --nodes=1 --ntasks=1 --cpus-per-task=72 \
-  --gres=gpu:gh200:1 --time=0-00:15:00 \
-  --pty env USE_GPU=1 bash scripts/in-container.sh
-```
-
-`USE_GPU=1` enables Apptainer's `--nv` option; it does not allocate a GPU.
-
-## GPU check and batch jobs
-
-Submit from the repository root, since Slurm uses the submit
-directory to locate `env.sh`:
-
-```bash
-mkdir -p runs
-sbatch scripts/gpu-check.sh
-```
-
-The check validates CUDA availability and a GPU matrix computation. Inspect it
-with `squeue -u "$USER"` and `cat runs/gpu-check-JOB_ID/gpu-check-JOB_ID.out`.
-
-To submit an agent task, first authenticate interactively and choose a complete
-`provider/model` identifier from the model list. Copy and adapt the example
-experiment configuration, then preview its rendered prompt:
-
-```bash
-cp configs/smollm3-swedish.example.json configs/my-experiment.json
-python3 scripts/render-prompt.py --template prompt.md \
-  --config configs/my-experiment.json --output /tmp/prompt.preview.md
+sbatch --export=ALL,AGENT=opencode scripts/gpu-check.sh
 
 MODEL_ID='provider/model'
-scripts/submit-agent.sh opencode "$MODEL_ID" configs/my-experiment.json
-
-# Optional reasoning variant, when supported by the selected model.
-scripts/submit-agent.sh opencode "$MODEL_ID" configs/my-experiment.json high
+bash scripts/submit-agent.sh opencode "$MODEL_ID" \
+  configs/smollm3-swedish.example.json high
 ```
 
-The optional argument is passed as `opencode run --variant`; available variants
-depend on the provider/model. The submit helper names each job
-`opencode-EXPERIMENT-MODEL-JOB_ID` under `runs/`, where
-`EXPERIMENT` comes from the config filename. For example, config
-`my-experiment.json` and model `provider/model` produce
-`runs/opencode-my-experiment-provider-model-JOB_ID/` and matching
-`runs/opencode-my-experiment-provider-model-JOB_ID/opencode-my-experiment-provider-model-JOB_ID.{out,err}`. The launcher
-copies `auth.json` and the selected provider definition from the interactive
-`home/.config/opencode/opencode.json` into an isolated job home, snapshots and renders the
-prompt/configuration, initializes the timer, and writes OpenCode events to
-`agent.jsonl` and internal error logs to `agent.err`. Custom provider endpoints,
-deployment IDs, credentials and reasoning variants are preserved; other interactive
-settings are not copied. Environment-variable credentials still require the
-corresponding `APPTAINERENV_*` variables in the submission environment.
-It enables automatic tool permissions,
-so submit only trusted experiments.
+The optional fourth argument becomes `opencode run --variant LEVEL`. The selected
+provider/model must define that variant. For Azure models, use the explicit
+[variant mappings](azure-models.md#effort).
 
-The helper accepts paths from any working directory and creates `runs/` before
-submission. It reads `num_hours`, rounds up to whole minutes for Slurm, and
-selects `gputest` for up to 15 minutes or `gpumedium` above 15 minutes.
-Direct `sbatch scripts/opencode.sh ...` remains available for
-custom Slurm flags; its default name is `opencode-task-JOB_ID`. Use
-`sbatch --job-name=NAME scripts/opencode.sh ...` to give direct submissions a
-descriptive name for its run directory and log files.
+## Runtime and credentials
 
-```bash
-tail -f runs/opencode-my-experiment-provider-model-JOB_ID/agent.jsonl
-cat runs/opencode-my-experiment-provider-model-JOB_ID/agent.err
-scancel JOB_ID
-```
+The launcher runs `opencode run --format json` with automatic tool permissions.
+It copies `auth.json` and snapshots only the selected provider definition from
+`opencode.json`, preserving endpoints, deployment IDs, credentials, and variants.
+Other interactive settings and sessions are not copied.
+Environment-variable credentials require `APPTAINERENV_*` forwarding.
+`APPTAINERENV_OPENCODE_CONFIG_CONTENT` overrides saved provider settings; clear
+stale overrides when using the saved configuration.
 
-An empty Slurm `.out` log is normal: agent output is redirected to the
-run directory. Queued jobs snapshot prompt/configuration/credentials when they
-start, not when submitted.
+Agent events go to `agent.jsonl`, and internal logs go to `agent.err`. This
+launcher does not create `work/agent-final.md`; inspect the event stream for the
+assistant response. Shared output paths and monitoring commands are in the
+[common guide](agent-common.md#outputs-and-monitoring).
+
+## Validation and references
+
+Historical Azure connectivity, tool-call, and effort-forwarding checks used
+OpenCode **1.19.2**; see [results and logs](azure-models.md#validation).
+The build example above selects **1.19.5** and does not establish that the same
+runtime checks were repeated on that version.
+
+- [Configuration](https://opencode.ai/docs/config/)
+- [Custom providers](https://opencode.ai/docs/providers/#custom-provider)
+- [Model variants](https://opencode.ai/docs/models/#variants)

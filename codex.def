@@ -2,15 +2,25 @@ Bootstrap: localimage
 From: ./containers/vllm-0-19-1-base.sif
 
 %files
-    ./build-codex/codex /usr/local/bin/codex
-    ./build-codex/codex-code-mode-host /usr/local/bin/codex-code-mode-host
+    ./build-codex/package /opt/codex/package
+    ./build-codex/package.sha256 /opt/codex/package.sha256
     ./build-codex/version.txt /opt/codex/version.txt
+    ./scripts/check-codex-package.py /opt/codex/check-package.py
 
 %post
     set -eu
-    chmod 755 /usr/local/bin/codex /usr/local/bin/codex-code-mode-host
     mkdir -p /opt/codex /home/agent /workspace /hf-cache
-    sha256sum /usr/local/bin/codex /usr/local/bin/codex-code-mode-host > /opt/codex/binary.sha256
+    # PID-managed daemon startup invokes ps, absent from the minimal Rocky base.
+    if ! command -v ps >/dev/null 2>&1; then
+        dnf install -y procps-ng
+        dnf clean all
+    fi
+    command -v ps
+    ps -p $$ -o pid=
+    rpm -q procps-ng > /opt/codex/system-requirements.txt
+    # Symlink into the intact package: the daemon resolves its own package root.
+    ln -sf /opt/codex/package/bin/codex /usr/local/bin/codex
+    ln -sf /opt/codex/package/bin/codex-code-mode-host /usr/local/bin/codex-code-mode-host
     python3 -m pip install --no-cache-dir 'sacrebleu==2.5.1'
     python3 -m pip freeze > /opt/codex/python-requirements.txt
     cat > /usr/local/bin/vllm-python <<'EOF'
@@ -25,9 +35,9 @@ EOF
 
 %test
     set -eu
-    /usr/local/bin/codex --version
-    # Fail the build if the companion executable is missing or cannot load.
-    /usr/local/bin/codex-code-mode-host --help >/dev/null
-    sha256sum -c /opt/codex/binary.sha256
+    cd /opt/codex
+    sha256sum -c package.sha256
+    # A version check alone does not detect the incomplete-package daemon error.
+    python3 check-package.py /opt/codex/package "$(cat version.txt)" --start-daemon
     vllm-python -c 'import torch, vllm, sacrebleu, sentencepiece, pyarrow; print("vLLM:", vllm.__version__, "Torch:", torch.__version__, "CUDA:", torch.version.cuda)'
 
