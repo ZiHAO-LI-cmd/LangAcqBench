@@ -3,13 +3,13 @@
 # the current user's Claude installation or credentials.
 set -euo pipefail
 
-VERSION="${1:?Usage: bash scripts/download-claude.sh VERSION (e.g. 2.1.89)}"
+VERSION="${1:?Usage: bash scripts/downloads/download-claude.sh VERSION (e.g. 2.1.89)}"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
     echo "Expected a stable numeric Claude Code version" >&2
     exit 2
 }
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BUILD_DIR="$REPO_ROOT/build-claude"
 mkdir -p "$BUILD_DIR"
 STAGING_DIR="$(mktemp -d "$BUILD_DIR/.download.XXXXXX")"

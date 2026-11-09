@@ -2,14 +2,14 @@
 # Download a specific official Linux ARM64 release; do not execute the binary on the host.
 set -euo pipefail
 
-VERSION="${1:?Usage: bash scripts/download-opencode.sh VERSION (e.g. 1.18.30)}"
+VERSION="${1:?Usage: bash scripts/downloads/download-opencode.sh VERSION (e.g. 1.18.30)}"
 VERSION="${VERSION#v}"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.]+)?$ ]] || {
     echo "Expected an OpenCode release version, with or without the v prefix" >&2
     exit 2
 }
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BUILD_DIR="$REPO_ROOT/build-opencode"
 ARCHIVE="opencode-linux-arm64.tar.gz"
 URL="https://github.com/anomalyco/opencode/releases/download/v$VERSION/$ARCHIVE"

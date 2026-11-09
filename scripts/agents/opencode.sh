@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=opencode-task
-#SBATCH --account=project_2008161
+#SBATCH --account=project_2001403
 #SBATCH --partition=gputest
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
@@ -14,9 +14,9 @@ set -euo pipefail
 umask 077
 JOB_STARTED_AT="$(date +%s)"
 
-# Usage: sbatch scripts/opencode.sh MODEL EXPERIMENT_CONFIG [REASONING_LEVEL]
+# Usage: sbatch scripts/agents/opencode.sh MODEL EXPERIMENT_CONFIG [REASONING_LEVEL]
 if (( $# < 2 || $# > 3 )); then
-    echo "Usage: sbatch scripts/opencode.sh MODEL EXPERIMENT_CONFIG [REASONING_LEVEL]" >&2
+    echo "Usage: sbatch scripts/agents/opencode.sh MODEL EXPERIMENT_CONFIG [REASONING_LEVEL]" >&2
     exit 2
 fi
 
@@ -39,7 +39,7 @@ test -f "$EXPERIMENT_CONFIG"
 export RUN_DIR="$PROJECT_ROOT/runs/${SLURM_JOB_NAME:-opencode-task}-$SLURM_JOB_ID"
 export USE_GPU=1
 export AGENT=opencode
-source "$PROJECT_ROOT/scripts/job-summary.sh"
+source "$PROJECT_ROOT/scripts/lib/job-summary.sh"
 
 mkdir -p \
     "$RUN_DIR/home/.local/share/opencode" \
@@ -47,7 +47,7 @@ mkdir -p \
     "$RUN_DIR/work"
 
 # Select the experiment mode, snapshot inputs, copy tools and initialize time.
-source "$PROJECT_ROOT/scripts/prepare-agent.sh"
+source "$PROJECT_ROOT/scripts/lib/prepare-agent.sh"
 
 # Copy the credential for this task to avoid sharing the entire session directory.
 AUTH_SRC="$PROJECT_ROOT/interactive/home/.local/share/opencode/auth.json"

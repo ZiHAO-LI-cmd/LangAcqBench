@@ -120,14 +120,14 @@ apply. To preview an adapted config before submission:
 
 ```bash
 cp configs/smollm3-swedish.example.json configs/my-experiment.json
-python3 scripts/render-prompt.py --template prompt.md \
+python3 scripts/lib/render-prompt.py --template prompt.md \
   --config configs/my-experiment.json --output /tmp/prompt.preview.md
 ```
 
 The helper validates the config, sets Slurm time from `num_hours` rounded up to
 whole minutes, and selects `gputest` for at most 15 minutes or `gpumedium` above
 that. It accepts config paths from any working directory and submits from the
-repository root. Direct `sbatch scripts/AGENT.sh MODEL CONFIG [EFFORT]` should run
+repository root. Direct `sbatch scripts/agents/AGENT.sh MODEL CONFIG [EFFORT]` should run
 from the root and retains the script's 15-minute `gputest` defaults unless
 Slurm flags override them. Check the selected script's account setting.
 Slurm must forward required environment variables, normally with `--export=ALL`.

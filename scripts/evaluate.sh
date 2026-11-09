@@ -14,7 +14,7 @@ Run translation evaluation inside an existing Slurm allocation.
   --mt-dirs       Required language code/name pairs; supply at least two.
                   All ordered translation directions are evaluated by default.
   --mono-tasks    Optional lm_eval tasks, separated by spaces or commas.
-  OPTIONS         Additional options accepted by scripts/evaluate-mt.py.
+  OPTIONS         Additional options accepted by scripts/evaluation/evaluate-mt.py.
 
 Common options:
   --n-shot N      Few-shot examples per prompt (default: 3; use 0 without data/dev).
@@ -134,7 +134,7 @@ mkdir -p "$RUN_DIR"
 translation_output="${translation_output:-$RUN_DIR/translation.json}"
 
 # Extra arguments can override these defaults, including --n-shot and --output.
-srun python -u "$PROJECT_DIR/scripts/evaluate-mt.py" \
+srun python -u "$PROJECT_DIR/scripts/evaluation/evaluate-mt.py" \
     --model "$MODEL" \
     --test-dir "$PROJECT_DIR/data/test" \
     --dev-dir "$PROJECT_DIR/data/dev" \
@@ -159,5 +159,5 @@ report_args=(--translation "$translation_output" --output "$RUN_DIR/summary.xlsx
 if [[ -n "$mono_tasks" ]]; then
     report_args+=(--lm-eval-dir "$RUN_DIR")
 fi
-python "$PROJECT_DIR/scripts/evaluate-report.py" "${report_args[@]}"
+python "$PROJECT_DIR/scripts/evaluation/evaluate-report.py" "${report_args[@]}"
 echo "Evaluation results: $RUN_DIR"

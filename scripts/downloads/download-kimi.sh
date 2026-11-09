@@ -2,7 +2,7 @@
 # Prepare a pinned native release for the container; never execute the binary.
 set -euo pipefail
 
-VERSION="${1:?Usage: bash scripts/download-kimi.sh VERSION [arm64|x64] (e.g. 2.2.0)}"
+VERSION="${1:?Usage: bash scripts/downloads/download-kimi.sh VERSION [arm64|x64] (e.g. 2.2.0)}"
 ARCH="${2:-arm64}"
 if (( $# > 2 )) || [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     echo "Expected a stable numeric version and optional architecture." >&2
@@ -13,7 +13,7 @@ case "$ARCH" in
     *) echo "Unsupported architecture: $ARCH (expected arm64 or x64)" >&2; exit 2 ;;
 esac
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BUILD_DIR="$REPO_ROOT/build-kimi"
 mkdir -p "$BUILD_DIR"
 STAGING_DIR="$(mktemp -d "$BUILD_DIR/.download.XXXXXX")"

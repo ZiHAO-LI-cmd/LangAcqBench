@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=claude-task
-#SBATCH --account=project_2008161
+#SBATCH --account=project_2001403
 #SBATCH --partition=gputest
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
@@ -14,9 +14,9 @@ set -euo pipefail
 umask 077
 JOB_STARTED_AT="$(date +%s)"
 
-# Usage: sbatch scripts/claude.sh MODEL EXPERIMENT_CONFIG [EFFORT_LEVEL]
+# Usage: sbatch scripts/agents/claude.sh MODEL EXPERIMENT_CONFIG [EFFORT_LEVEL]
 if (( $# < 2 || $# > 3 )); then
-    echo "Usage: sbatch scripts/claude.sh MODEL EXPERIMENT_CONFIG [EFFORT_LEVEL]" >&2
+    echo "Usage: sbatch scripts/agents/claude.sh MODEL EXPERIMENT_CONFIG [EFFORT_LEVEL]" >&2
     exit 2
 fi
 
@@ -41,13 +41,13 @@ test -f "$EXPERIMENT_CONFIG"
 export AGENT=claude
 export RUN_DIR="$PROJECT_ROOT/runs/${SLURM_JOB_NAME:-claude-task}-$SLURM_JOB_ID"
 export USE_GPU=1
-source "$PROJECT_ROOT/scripts/job-summary.sh"
+source "$PROJECT_ROOT/scripts/lib/job-summary.sh"
 
 mkdir -p "$RUN_DIR/home/.claude" "$RUN_DIR/work"
 chmod 700 "$RUN_DIR/home/.claude"
 
 # Select the experiment mode, snapshot inputs, copy tools and initialize time.
-source "$PROJECT_ROOT/scripts/prepare-agent.sh"
+source "$PROJECT_ROOT/scripts/lib/prepare-agent.sh"
 
 # Prefer an API key passed through Apptainer's clean-environment mechanism.
 # Otherwise serialize use of the rotating OAuth login and persist refreshed

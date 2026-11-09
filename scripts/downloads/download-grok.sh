@@ -4,7 +4,7 @@
 set -euo pipefail
 
 if (( $# < 1 || $# > 3 )); then
-    echo "Usage: bash scripts/download-grok.sh VERSION [arm64|amd64] [EXPECTED_SHA256]" >&2
+    echo "Usage: bash scripts/downloads/download-grok.sh VERSION [arm64|amd64] [EXPECTED_SHA256]" >&2
     exit 2
 fi
 VERSION="$1"
@@ -23,7 +23,7 @@ if [[ -n "$EXPECTED_SHA256" && ! "$EXPECTED_SHA256" =~ ^[0-9a-fA-F]{64}$ ]]; the
     exit 2
 fi
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BUILD_DIR="$REPO_ROOT/build-grok"
 mkdir -p "$BUILD_DIR"
 STAGING_DIR="$(mktemp -d "$BUILD_DIR/.download.XXXXXX")"

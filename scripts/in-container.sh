@@ -22,7 +22,7 @@ RUN_DIR="$(cd "$RUN_DIR" && pwd)"
 
 # Read the snapshotted mode for batch jobs; interactive use remains standard.
 if [[ -f "$RUN_DIR/work/experiment.json" ]]; then
-    EXPERIMENT_MODE="$(python3 "$SCRIPT_DIR/experiment_config.py" "$RUN_DIR/work/experiment.json")"
+    EXPERIMENT_MODE="$(python3 "$SCRIPT_DIR/lib/experiment_config.py" "$RUN_DIR/work/experiment.json")"
 else
     EXPERIMENT_MODE="${EXPERIMENT_MODE:-standard}"
 fi
@@ -38,7 +38,7 @@ case "$EXPERIMENT_MODE" in
         # downloaded by earlier runs. Mount only the configured training paths.
         CONTAINER_HF_HOME="$RUN_DIR/hf-cache"
         mkdir -p "$CONTAINER_HF_HOME"
-        TRAIN_BINDS="$(python3 "$SCRIPT_DIR/experiment_config.py" "$RUN_DIR/work/experiment.json" --binds)"
+        TRAIN_BINDS="$(python3 "$SCRIPT_DIR/lib/experiment_config.py" "$RUN_DIR/work/experiment.json" --binds)"
         while IFS= read -r bind; do
             DATA_ARGS+=(--bind "$bind")
         done <<< "$TRAIN_BINDS"

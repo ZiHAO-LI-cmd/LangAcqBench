@@ -9,7 +9,7 @@ GPU allocation, submission rules, and logs.
 After the [shared setup](agent-common.md#prepare-the-environment):
 
 ```bash
-bash scripts/download-claude.sh 2.1.319
+bash scripts/downloads/download-claude.sh 2.1.319
 apptainer build --fakeroot --bind="$TMPDIR:/tmp" containers/claude.sif claude.def
 AGENT=claude bash scripts/in-container.sh claude --version
 ```

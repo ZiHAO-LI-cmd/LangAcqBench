@@ -2,18 +2,18 @@
 # Source after setting EXPERIMENT_CONFIG, RUN_DIR, PROJECT_ROOT and JOB_STARTED_AT.
 # All agents use the same mode selection, snapshot and tool-copy rules.
 cp "$EXPERIMENT_CONFIG" "$RUN_DIR/work/experiment.json"
-EXPERIMENT_MODE="$(python3 "$PROJECT_ROOT/scripts/experiment_config.py" "$RUN_DIR/work/experiment.json")"
+EXPERIMENT_MODE="$(python3 "$PROJECT_ROOT/scripts/lib/experiment_config.py" "$RUN_DIR/work/experiment.json")"
 export EXPERIMENT_MODE
 
 cp "$SLURM_SUBMIT_DIR/prompt.md" "$RUN_DIR/work/prompt.template.md"
-python3 "$PROJECT_ROOT/scripts/render-prompt.py" \
+python3 "$PROJECT_ROOT/scripts/lib/render-prompt.py" \
     --template "$RUN_DIR/work/prompt.template.md" \
     --config "$RUN_DIR/work/experiment.json" \
     --output "$RUN_DIR/work/prompt.md"
 
 cp "$PROJECT_ROOT/timer.sh" "$RUN_DIR/work/"
 if [[ "$EXPERIMENT_MODE" == standard ]]; then
-    cp "$PROJECT_ROOT/scripts/evaluate-mt.py" "$PROJECT_ROOT/scripts/evaluate.sh" "$RUN_DIR/work/"
+    cp "$PROJECT_ROOT/scripts/evaluation/evaluate-mt.py" "$PROJECT_ROOT/scripts/evaluate.sh" "$RUN_DIR/work/"
 fi
 
 TIMER_ARGS=(--init --config "$RUN_DIR/work/experiment.json" --start "$JOB_STARTED_AT")

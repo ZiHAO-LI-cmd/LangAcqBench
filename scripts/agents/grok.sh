@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=grok-task
-#SBATCH --account=project_2008161
+#SBATCH --account=project_2001403
 #SBATCH --partition=gputest
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
@@ -15,7 +15,7 @@ umask 077
 JOB_STARTED_AT="$(date +%s)"
 
 if (( $# < 2 || $# > 3 )); then
-    echo "Usage: sbatch scripts/grok.sh MODEL EXPERIMENT_CONFIG [EFFORT_LEVEL]" >&2
+    echo "Usage: sbatch scripts/agents/grok.sh MODEL EXPERIMENT_CONFIG [EFFORT_LEVEL]" >&2
     exit 2
 fi
 MODEL_ID="${1:?Please provide a Grok model ID}"
@@ -35,11 +35,11 @@ test -f "$EXPERIMENT_CONFIG"
 export AGENT=grok
 export RUN_DIR="$PROJECT_ROOT/runs/${SLURM_JOB_NAME:-grok-task}-$SLURM_JOB_ID"
 export USE_GPU=1
-source "$PROJECT_ROOT/scripts/job-summary.sh"
+source "$PROJECT_ROOT/scripts/lib/job-summary.sh"
 
 mkdir -p "$RUN_DIR/home/.grok" "$RUN_DIR/work"
 chmod 700 "$RUN_DIR/home" "$RUN_DIR/home/.grok"
-source "$PROJECT_ROOT/scripts/prepare-agent.sh"
+source "$PROJECT_ROOT/scripts/lib/prepare-agent.sh"
 
 # Reuse persistent model/provider configuration, as with the Kimi launcher.
 # An explicit file overrides it; relative paths use the submitting directory.

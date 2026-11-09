@@ -2,7 +2,7 @@
 #SBATCH --job-name=eval
 #SBATCH --error=runs/evaluate/logs/%x_%j.err
 #SBATCH --output=runs/evaluate/logs/%x_%j.out
-#SBATCH --account=project_2008161
+#SBATCH --account=project_2001403
 #SBATCH --partition=gpumedium
 #SBATCH --nodes=1
 #SBATCH --ntasks=1

@@ -4,7 +4,7 @@
 set -euo pipefail
 
 if (( $# < 1 || $# > 3 )); then
-    echo "Usage: bash scripts/download-antigravity.sh VERSION [arm64|amd64] [MANIFEST_JSON]" >&2
+    echo "Usage: bash scripts/downloads/download-antigravity.sh VERSION [arm64|amd64] [MANIFEST_JSON]" >&2
     exit 2
 fi
 VERSION="$1"
@@ -18,7 +18,7 @@ case "$ARCH" in
     *) echo "Unsupported architecture: $ARCH (expected arm64 or amd64)" >&2; exit 2 ;;
 esac
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BUILD_DIR="$REPO_ROOT/build-antigravity"
 mkdir -p "$BUILD_DIR"
 STAGING_DIR="$(mktemp -d "$BUILD_DIR/.download.XXXXXX")"

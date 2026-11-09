@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=antigravity-task
-#SBATCH --account=project_2008161
+#SBATCH --account=project_2001403
 #SBATCH --partition=gputest
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
@@ -15,7 +15,7 @@ umask 077
 JOB_STARTED_AT="$(date +%s)"
 
 if (( $# < 2 || $# > 3 )); then
-    echo "Usage: sbatch scripts/antigravity.sh MODEL EXPERIMENT_CONFIG [EFFORT_LEVEL]" >&2
+    echo "Usage: sbatch scripts/agents/antigravity.sh MODEL EXPERIMENT_CONFIG [EFFORT_LEVEL]" >&2
     exit 2
 fi
 MODEL_ID="${1:?Please provide an Antigravity model slug}"
@@ -35,11 +35,11 @@ test -f "$EXPERIMENT_CONFIG"
 export AGENT=antigravity
 export RUN_DIR="$PROJECT_ROOT/runs/${SLURM_JOB_NAME:-antigravity-task}-$SLURM_JOB_ID"
 export USE_GPU=1
-source "$PROJECT_ROOT/scripts/job-summary.sh"
+source "$PROJECT_ROOT/scripts/lib/job-summary.sh"
 
 mkdir -p "$RUN_DIR/home/.gemini/antigravity-cli" "$RUN_DIR/work"
 chmod 700 "$RUN_DIR/home" "$RUN_DIR/home/.gemini" "$RUN_DIR/home/.gemini/antigravity-cli"
-source "$PROJECT_ROOT/scripts/prepare-agent.sh"
+source "$PROJECT_ROOT/scripts/lib/prepare-agent.sh"
 
 # Keep interactive sessions, hooks and plugins out of the batch home. The key
 # stays in the environment; settings only select the provider and task policies.

@@ -10,7 +10,7 @@ allocation, submission rules, and logs. Azure Kimi K3 configuration is in
 After the [shared setup](agent-common.md#prepare-the-environment):
 
 ```bash
-bash scripts/download-kimi.sh 2.5.2
+bash scripts/downloads/download-kimi.sh 2.5.2
 apptainer build --fakeroot --bind="$TMPDIR:/tmp" containers/kimi.sif kimi.def
 AGENT=kimi bash scripts/in-container.sh kimi --version
 ```
@@ -54,7 +54,7 @@ bash scripts/submit-agent.sh kimi kimi-k3 \
 ```
 
 The optional fourth argument is applied by
-[`set-kimi-effort.py`](../scripts/set-kimi-effort.py) to the job's config copy:
+[`set-kimi-effort.py`](../scripts/lib/set-kimi-effort.py) to the job's config copy:
 it enables `[thinking]` and sets `effort`. The model must declare the requested
 level in `support_efforts`; Azure Kimi K3 uses `low`, `high`, or `max`. Omission
 preserves the copied config. The helper requires a regular `[thinking]` table

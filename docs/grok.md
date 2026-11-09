@@ -10,7 +10,7 @@ allocation, submission rules, and logs. Azure Grok 4.7 configuration is in
 After the [shared setup](agent-common.md#prepare-the-environment):
 
 ```bash
-bash scripts/download-grok.sh 1.0.70 arm64
+bash scripts/downloads/download-grok.sh 1.0.70 arm64
 apptainer build --fakeroot --bind="$TMPDIR:/tmp" containers/grok.sif grok.def
 AGENT=grok bash scripts/in-container.sh grok --version
 ```

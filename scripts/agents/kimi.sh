@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=kimi-task
-#SBATCH --account=project_2008161
+#SBATCH --account=project_2001403
 #SBATCH --partition=gputest
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
@@ -15,7 +15,7 @@ umask 077
 JOB_STARTED_AT="$(date +%s)"
 
 if (( $# < 2 || $# > 3 )); then
-    echo "Usage: sbatch scripts/kimi.sh MODEL_ALIAS EXPERIMENT_CONFIG [EFFORT_LEVEL]" >&2
+    echo "Usage: sbatch scripts/agents/kimi.sh MODEL_ALIAS EXPERIMENT_CONFIG [EFFORT_LEVEL]" >&2
     exit 2
 fi
 # Kimi 2.2.0 has no effort CLI flag; override only the copied job config.
@@ -36,12 +36,12 @@ test -f "$EXPERIMENT_CONFIG"
 export AGENT=kimi
 export RUN_DIR="$PROJECT_ROOT/runs/${SLURM_JOB_NAME:-kimi-task}-$SLURM_JOB_ID"
 export USE_GPU=1
-source "$PROJECT_ROOT/scripts/job-summary.sh"
+source "$PROJECT_ROOT/scripts/lib/job-summary.sh"
 
 KIMI_RUN_HOME="$RUN_DIR/home/.kimi-code"
 mkdir -p "$KIMI_RUN_HOME/credentials" "$RUN_DIR/work"
 chmod 700 "$RUN_DIR/home" "$KIMI_RUN_HOME" "$KIMI_RUN_HOME/credentials"
-source "$PROJECT_ROOT/scripts/prepare-agent.sh"
+source "$PROJECT_ROOT/scripts/lib/prepare-agent.sh"
 
 # Copy provider/model configuration and tokens, but no sessions, plugins or
 # previous workspace state. Config may contain API keys: treat it as a secret.
@@ -59,7 +59,7 @@ if [[ -n "$EFFORT_LEVEL" ]]; then
     # through stdin so it also works with train_only's restricted mounts.
     USE_GPU=0 bash "$PROJECT_ROOT/scripts/in-container.sh" \
         python3 - /home/agent/.kimi-code/config.toml "$MODEL_ID" "$EFFORT_LEVEL" \
-        < "$PROJECT_ROOT/scripts/set-kimi-effort.py"
+        < "$PROJECT_ROOT/scripts/lib/set-kimi-effort.py"
 fi
 shopt -s nullglob
 AUTH_FILES=("$KIMI_AUTH_HOME/credentials/"*.json)

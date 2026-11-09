@@ -55,3 +55,6 @@ __pycache__/
 # Models and Dataset
 /models/*
 /data/*
+
+# Test scripts
+/tests/*

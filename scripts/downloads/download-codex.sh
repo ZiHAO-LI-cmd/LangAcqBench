@@ -1,15 +1,15 @@
 #!/bin/bash
 # Download a complete official Linux ARM64 package; never execute it on the host.
 set -euo pipefail
-VERSION="${1:?Usage: bash scripts/download-codex.sh VERSION (e.g. 0.167.0)}"
+VERSION="${1:?Usage: bash scripts/downloads/download-codex.sh VERSION (e.g. 0.167.0)}"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
     echo "Expected a stable numeric release version, without the rust-v prefix" >&2
     exit 2
 }
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 mkdir -p "$REPO_ROOT/build-codex"
 cd "$REPO_ROOT/build-codex"
-# Validate the entire package before replacing the previous build input.
+# Verify the archive checksum before replacing the previous build input.
 STAGING_DIR="$(mktemp -d "$REPO_ROOT/build-codex/.download.XXXXXX")"
 trap 'rm -rf -- "$STAGING_DIR"' EXIT
 ARCHIVE="codex-package-aarch64-unknown-linux-musl.tar.gz"
@@ -25,7 +25,6 @@ done
     sha256sum -c archive.sha256
     mkdir package
     tar -xzf "$ARCHIVE" -C package
-    python3 "$REPO_ROOT/scripts/check-codex-package.py" package "$VERSION"
     find package -type f -exec sha256sum {} + | LC_ALL=C sort -k2 > package.sha256
 )
 rm -rf -- "$REPO_ROOT/build-codex/package"

@@ -9,7 +9,7 @@ job_summary_on_exit() {
         agent_cleanup || status=$?
     fi
 
-    python3 "$PROJECT_ROOT/scripts/agent-summary.py" \
+    python3 "$PROJECT_ROOT/scripts/lib/agent-summary.py" \
         "$AGENT" "$RUN_DIR/agent.jsonl" "$JOB_STARTED_AT" "$(date +%s)" "$status" || true
     exit "$status"
 }

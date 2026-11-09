@@ -9,7 +9,7 @@ Azure deployment configuration is in [Azure models](azure-models.md#codex).
 After the [shared setup](agent-common.md#prepare-the-environment):
 
 ```bash
-bash scripts/download-codex.sh 0.167.0
+bash scripts/downloads/download-codex.sh 0.167.0
 apptainer build --fakeroot --bind="$TMPDIR:/tmp" containers/codex.sif codex.def
 AGENT=codex bash scripts/in-container.sh codex --version
 ```

@@ -10,7 +10,7 @@ GLM 5.3 configuration is in [Azure models](azure-models.md#opencode).
 After the [shared setup](agent-common.md#prepare-the-environment):
 
 ```bash
-bash scripts/download-opencode.sh 1.19.5
+bash scripts/downloads/download-opencode.sh 1.19.5
 apptainer build --fakeroot --bind="$TMPDIR:/tmp" containers/opencode.sif opencode.def
 AGENT=opencode bash scripts/in-container.sh opencode --version
 ```

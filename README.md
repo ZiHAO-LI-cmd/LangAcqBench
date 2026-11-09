@@ -28,7 +28,12 @@ timer, and translation evaluator.
 ## Repository layout
 
 ```text
-scripts/       Evaluator, download helpers, container entry point, Slurm launchers, prompt renderer
+scripts/       Common command entry points (see scripts/README.md)
+  agents/      Per-agent Slurm launchers
+  downloads/   Pinned CLI release downloaders
+  evaluation/  Translation evaluator and report generator
+  lib/         Shared configuration, prompt, credential, and job helpers
+tools/         Dataset download and token preparation
 docs/          Agent-specific operating guides
 configs/       Experiment configuration examples
 prompt.md      Batch-job prompt template
@@ -38,3 +43,5 @@ prompt.md      Batch-job prompt template
 Local container images, downloaded binaries, credentials, runtime state, run
 outputs, models, datasets, and logs are intentionally ignored by Git. Configure
 the cluster-specific paths in `env.sh` before following a guide.
+
+See the [script directory guide](scripts/README.md) for entry points and examples.

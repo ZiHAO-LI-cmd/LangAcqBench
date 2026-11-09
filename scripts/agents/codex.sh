@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=codex-task
-#SBATCH --account=project_2008161
+#SBATCH --account=project_2001403
 #SBATCH --partition=gputest
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
@@ -14,9 +14,9 @@ set -euo pipefail
 umask 077
 JOB_STARTED_AT="$(date +%s)"
 
-# Usage: sbatch scripts/codex.sh MODEL EXPERIMENT_CONFIG [REASONING_LEVEL]
+# Usage: sbatch scripts/agents/codex.sh MODEL EXPERIMENT_CONFIG [REASONING_LEVEL]
 if (( $# < 2 || $# > 3 )); then
-    echo "Usage: sbatch scripts/codex.sh MODEL EXPERIMENT_CONFIG [REASONING_LEVEL]" >&2
+    echo "Usage: sbatch scripts/agents/codex.sh MODEL EXPERIMENT_CONFIG [REASONING_LEVEL]" >&2
     exit 2
 fi
 
@@ -48,14 +48,14 @@ test -f "$EXPERIMENT_CONFIG"
 export AGENT=codex
 export RUN_DIR="$PROJECT_ROOT/runs/${SLURM_JOB_NAME:-codex-task}-$SLURM_JOB_ID"
 export USE_GPU=1
-source "$PROJECT_ROOT/scripts/job-summary.sh"
+source "$PROJECT_ROOT/scripts/lib/job-summary.sh"
 
 mkdir -p \
     "$RUN_DIR/home/.codex" \
     "$RUN_DIR/work"
 
 # Select the experiment mode, snapshot inputs, copy tools and initialize time.
-source "$PROJECT_ROOT/scripts/prepare-agent.sh"
+source "$PROJECT_ROOT/scripts/lib/prepare-agent.sh"
 
 # The azure/ prefix selects the private, self-contained Azure provider profile.
 # API-key jobs use independent configuration copies without shared OAuth state.

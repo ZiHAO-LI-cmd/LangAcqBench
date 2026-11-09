@@ -41,7 +41,7 @@ PY
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 preview="$(mktemp)"
 trap 'rm -f "$preview"' EXIT
-python3 "$repo_root/scripts/render-prompt.py" --config "$config" --output "$preview"
+python3 "$repo_root/scripts/lib/render-prompt.py" --config "$config" --output "$preview"
 rm -f "$preview"
 trap - EXIT
 if (( minutes > 15 )); then
@@ -67,4 +67,4 @@ job_name="$agent-$experiment-$model_slug"
 cd "$repo_root"
 mkdir -p runs
 sbatch --job-name="$job_name" --time="$minutes" --partition="$partition" \
-    "scripts/$agent.sh" "$model" "$config" "${@:4}"
+    "scripts/agents/$agent.sh" "$model" "$config" "${@:4}"

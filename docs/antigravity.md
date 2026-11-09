@@ -9,7 +9,7 @@ setup, the base image, GPU allocation, submission rules, and logs.
 After the [shared setup](agent-common.md#prepare-the-environment):
 
 ```bash
-bash scripts/download-antigravity.sh 1.5.3 arm64
+bash scripts/downloads/download-antigravity.sh 1.5.3 arm64
 apptainer build --fakeroot --bind="$TMPDIR:/tmp" \
   containers/antigravity.sif antigravity.def
 AGENT=antigravity bash scripts/in-container.sh agy --version
@@ -25,7 +25,7 @@ An optional third argument supplies an archived manifest while its upstream
 payload remains available; the second argument also accepts `amd64`/`x64`:
 
 ```bash
-bash scripts/download-antigravity.sh 1.5.3 arm64 /path/to/saved/release.json
+bash scripts/downloads/download-antigravity.sh 1.5.3 arm64 /path/to/saved/release.json
 ```
 
 The SIF's packaged binary is read-only; in-container updater behavior is
