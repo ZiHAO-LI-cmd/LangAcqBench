@@ -5,12 +5,7 @@ cp "$EXPERIMENT_CONFIG" "$RUN_DIR/work/experiment.json"
 EXPERIMENT_MODE="$(python3 "$PROJECT_ROOT/scripts/experiment_config.py" "$RUN_DIR/work/experiment.json")"
 export EXPERIMENT_MODE
 
-case "$EXPERIMENT_MODE" in
-    standard) PROMPT_TEMPLATE="$SLURM_SUBMIT_DIR/prompt.md" ;;
-    train_only) PROMPT_TEMPLATE="$SLURM_SUBMIT_DIR/prompt.train-only.md" ;;
-esac
-
-cp "$PROMPT_TEMPLATE" "$RUN_DIR/work/prompt.template.md"
+cp "$SLURM_SUBMIT_DIR/prompt.md" "$RUN_DIR/work/prompt.template.md"
 python3 "$PROJECT_ROOT/scripts/render-prompt.py" \
     --template "$RUN_DIR/work/prompt.template.md" \
     --config "$RUN_DIR/work/experiment.json" \

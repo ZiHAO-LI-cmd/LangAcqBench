@@ -60,14 +60,13 @@ def render(template, config):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--template", type=Path, help="Defaults to the template selected by experiment_mode")
+    parser.add_argument("--template", type=Path, help="Defaults to prompt.md")
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     try:
         config = json.loads(args.config.read_text(encoding="utf-8"))
-        mode = experiment_mode(config)
-        template = args.template or REPO_ROOT / ("prompt.train-only.md" if mode == "train_only" else "prompt.md")
+        template = args.template or REPO_ROOT / "prompt.md"
         if args.output.resolve() in {template.resolve(), args.config.resolve()}:
             parser.error("Output must not overwrite the template or config")
         result = render(template.read_text(encoding="utf-8"), config)
