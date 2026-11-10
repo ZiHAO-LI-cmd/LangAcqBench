@@ -10,6 +10,9 @@ Validation records date from **2026-10-21–2026-10-22**, with a Terra check on
 **Grok Build 1.0.62**, and **Codex 0.163.0**. Newer versions in the CLI build
 examples are not covered by these historical results.
 
+The two deployments added on **2026-11-10** were checked with **OpenCode
+1.19.5** and **Kimi Code 2.5.2**; see [validation](#validation).
+
 - [Deployments](#model-catalog) · [Credentials](#credentials) · [Effort](#effort)
 - [OpenCode](#opencode) · [Kimi Code](#kimi-code) · [Grok Build](#grok-build) · [Codex](#codex)
 - [Direct API calls](#direct-api) · [Validation and logs](#validation) · [Troubleshooting](#troubleshooting)
@@ -30,7 +33,9 @@ The recorded configuration uses this Azure resource:
 | Model | Azure deployment / API `model` | TPM | RPM |
 | --- | --- | --- | --- |
 | Kimi K3 | `FW-Kimi-K3` | 250,000 | 250 |
+| Kimi K3.1 Pro | `FW-Kimi-K3.1-Pro` | 500,000 | 500 |
 | DeepSeek V4.1 Flash | `DeepSeek-V4.1-Flash` | 1,000,000 | 1,000 |
+| DeepSeek V4.1 Flash 1017 | `DeepSeek-V4.1-Flash-1017` | 1,000,000 | 1,000 |
 | GLM 5.3 | `FW-GLM-5.3` | 250,000 | 250 |
 | Grok 4.7 | `grok-4.7` | 10,000,000 | 10,000 |
 | GPT-6 Astra | `gpt-6-astra` | 10,000,000 | 10,000 |
@@ -41,7 +46,9 @@ The recorded configuration uses this Azure resource:
 | Model | OpenCode identifier | Kimi Code alias | Grok Build alias | Codex submission selector |
 | --- | --- | --- | --- | --- |
 | Kimi K3 | `azure-kimi/kimi-k3` | `kimi-k3` | — | — |
+| Kimi K3.1 Pro | `azure-kimi/kimi-k3.1-pro` | `kimi-k3.1-pro` | — | — |
 | DeepSeek V4.1 Flash | `azure-deepseek/deepseek-v4.1-flash` | — | — | — |
+| DeepSeek V4.1 Flash 1017 | `azure-deepseek/deepseek-v4.1-flash-1017` | — | — | — |
 | GLM 5.3 | `azure-glm/glm-5.3` | — | — | — |
 | Grok 4.7 | — | — | `azure-grok-4.7` | — |
 | GPT-6 Astra | — | — | — | `azure/gpt-6-astra` |
@@ -101,8 +108,8 @@ bash scripts/submit-agent.sh AGENT MODEL EXPERIMENT_CONFIG [REASONING_OR_EFFORT_
 
 | Client / deployment | Verified levels | Mapping | When omitted |
 | --- | --- | --- | --- |
-| OpenCode: Kimi, DeepSeek, GLM | `low`, `high`, `max` | `--variant` → `variants.LEVEL.reasoningEffort` → API `reasoning_effort` | Model settings; Kimi example uses `high` |
-| Kimi Code: Kimi K3 | `low`, `high`, `max` | Enables `[thinking]` and sets `effort` in the job config copy | Preserves config; example uses `high` |
+| OpenCode: Kimi K3 / K3.1 Pro, DeepSeek V4.1 Flash / Flash 1017, GLM | `low`, `high`, `max` | `--variant` → `variants.LEVEL.reasoningEffort` → API `reasoning_effort` | Model settings; Kimi examples use `high` |
+| Kimi Code: Kimi K3 / K3.1 Pro | `low`, `high`, `max` | Enables `[thinking]` and sets `effort` in the job config copy | Preserves config; example uses `high` |
 | Grok Build: Grok 4.7 | `low`, `medium`, `high`, `xhigh` | `--reasoning-effort` → API `reasoning_effort` | Configured default `high` |
 | Codex: four GPT deployments | `low` API checks; `max` tool tests and request captures | `-c model_reasoning_effort=...` → Responses `reasoning.effort` | Azure profile uses `medium` |
 
@@ -145,6 +152,16 @@ sent as the deployment name:
             "high": {"reasoningEffort": "high"},
             "max": {"reasoningEffort": "max"}
           }
+        },
+        "kimi-k3.1-pro": {
+          "id": "FW-Kimi-K3.1-Pro",
+          "name": "Kimi K3.1 Pro (Azure)",
+          "options": {"reasoningEffort": "high"},
+          "variants": {
+            "low": {"reasoningEffort": "low"},
+            "high": {"reasoningEffort": "high"},
+            "max": {"reasoningEffort": "max"}
+          }
         }
       }
     },
@@ -159,6 +176,15 @@ sent as the deployment name:
         "deepseek-v4.1-flash": {
           "id": "DeepSeek-V4.1-Flash",
           "name": "DeepSeek V4.1 Flash (Azure)",
+          "variants": {
+            "low": {"reasoningEffort": "low"},
+            "high": {"reasoningEffort": "high"},
+            "max": {"reasoningEffort": "max"}
+          }
+        },
+        "deepseek-v4.1-flash-1017": {
+          "id": "DeepSeek-V4.1-Flash-1017",
+          "name": "DeepSeek V4.1 Flash 1017 (Azure)",
           "variants": {
             "low": {"reasoningEffort": "low"},
             "high": {"reasoningEffort": "high"},
@@ -213,6 +239,22 @@ bash scripts/submit-agent.sh opencode azure-kimi/kimi-k3 \
 Use identifiers from the [model table](#model-catalog) for DeepSeek or GLM.
 Use `/models` to switch interactively; restart to reload config changes.
 
+The 2026-11-10 additions preserve the old aliases and default model. Both new
+aliases reuse their existing Azure provider and saved credential. Select them
+with the existing submission helper:
+
+```bash
+AGENT=opencode bash scripts/in-container.sh opencode \
+  --model azure-deepseek/deepseek-v4.1-flash-1017
+AGENT=opencode bash scripts/in-container.sh opencode \
+  --model azure-kimi/kimi-k3.1-pro
+
+bash scripts/submit-agent.sh opencode azure-deepseek/deepseek-v4.1-flash-1017 \
+  configs/smollm3-swedish.json high
+bash scripts/submit-agent.sh opencode azure-kimi/kimi-k3.1-pro \
+  configs/smollm3-swedish.json high
+```
+
 <a id="opencode-batch"></a>
 
 ### Batch configuration
@@ -252,6 +294,14 @@ capabilities = ["thinking"]
 support_efforts = ["low", "high", "max"]
 default_effort = "high"
 
+[models."kimi-k3.1-pro"]
+provider = "azure-kimi"
+model = "FW-Kimi-K3.1-Pro"
+max_context_size = 131072
+capabilities = ["thinking"]
+support_efforts = ["low", "high", "max"]
+default_effort = "high"
+
 [thinking]
 enabled = true
 effort = "high"
@@ -274,6 +324,10 @@ AGENT=kimi bash scripts/in-container.sh kimi --model kimi-k3 \
 
 bash scripts/submit-agent.sh kimi kimi-k3 \
   configs/smollm3-swedish.example.json max
+
+AGENT=kimi bash scripts/in-container.sh kimi --model kimi-k3.1-pro
+bash scripts/submit-agent.sh kimi kimi-k3.1-pro \
+  configs/smollm3-swedish.json max
 ```
 
 Batch jobs copy the saved config and reuse its key or forwarded environment
@@ -438,6 +492,27 @@ It does not use Chat Completions `choices`.
 
 ## Validation and logs
 
+### 2026-11-10 additions
+
+Both `DeepSeek-V4.1-Flash-1017` and `FW-Kimi-K3.1-Pro` returned HTTP 200 and
+`AZURE_MODEL_OK` in direct non-streaming Chat Completions calls at each of
+`low`, `high`, and `max` (six requests).
+
+OpenCode **1.19.5** read a randomly generated marker file through its `read`
+tool and returned the marker with each new model. Captured main requests used
+the exact deployment IDs, `stream: true`, and `reasoning_effort: "high"` across
+both tool turns, with HTTP 200 responses. Native Kimi Code **2.5.2** passed the
+same file-read check using `kimi-k3.1-pro` and its `Read` tool; the job-copy
+effort helper set `max`, and both captured requests carried
+`reasoning_effort: "max"` and returned HTTP 200.
+
+Tests used isolated config copies and left the persistent configurations
+unchanged during validation. These results establish request acceptance,
+streaming, tool execution, and effort forwarding; they do not measure how
+effort affects reasoning, server context limits, or TPM/RPM throughput. The
+Kimi alias retains the existing 131,072-token client budget. No Slurm job was
+submitted.
+
 ### Historical results
 
 | Deployment / client | Verified behavior | Date |
@@ -486,6 +561,7 @@ start of this guide; build instructions for newer versions are separate.
 
 | Evidence | Path |
 | --- | --- |
+| Flash 1017 / Kimi K3.1 Pro API and CLI checks | `runs/azure-models-check-20261110/`: `api-results.json`, `cli-results.json`, `request-summary.json`, per-client `agent.jsonl` / `agent.err`, `check_api.py`, and `check_cli.py` |
 | Kimi connectivity and file-read tools | `runs/azure-kimi-connection-check-20261021/` |
 | DeepSeek / GLM connectivity and tools | `runs/azure-opencode-model-check-20261021/` |
 | OpenCode / Kimi effort captures | `runs/azure-effort-check-20261021/`, including `kimi-helper-results.json` |

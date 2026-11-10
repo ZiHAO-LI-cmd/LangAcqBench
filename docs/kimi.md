@@ -2,7 +2,7 @@
 
 This integration uses the native `MoonshotAI/kimi-code` CLI. Follow the
 [shared workflow](agent-common.md) for environment setup, the base image, GPU
-allocation, submission rules, and logs. Azure Kimi K3 configuration is in
+allocation, submission rules, and logs. Azure Kimi K3 / K3.1 Pro configuration is in
 [Azure models](azure-models.md#kimi-code).
 
 ## Build once
@@ -56,7 +56,7 @@ bash scripts/submit-agent.sh kimi kimi-k3 \
 The optional fourth argument is applied by
 [`set-kimi-effort.py`](../scripts/lib/set-kimi-effort.py) to the job's config copy:
 it enables `[thinking]` and sets `effort`. The model must declare the requested
-level in `support_efforts`; Azure Kimi K3 uses `low`, `high`, or `max`. Omission
+level in `support_efforts`; Azure Kimi K3 and K3.1 Pro use `low`, `high`, or `max`. Omission
 preserves the copied config. The helper requires a regular `[thinking]` table
 and rejects TOML layouts it cannot safely edit. It does not alter the interactive
 configuration or add a native `--effort` flag.
@@ -85,9 +85,10 @@ remove the lock and duplicate rotating tokens.
 Historical Azure API, file-read tool, and `low/high/max` request captures used
 native Kimi Code **2.2.0**; see [results and logs](azure-models.md#validation).
 [`test_kimi_effort.py`](../tests/test_kimi_effort.py) covers job-only effort
-changes and unsupported settings. The build example selects **2.5.2** and does
-not establish a repeat of the historical runtime checks, OAuth login, or a full
-Slurm experiment.
+changes and unsupported settings. Kimi K3.1 Pro passed a streaming file-read
+check and captured `max` effort forwarding with **2.5.2** on **2026-11-10**.
+This check did not cover OAuth login, a full Slurm experiment, or a repeat of
+the historical Kimi K3 tests.
 
 - [Official releases](https://github.com/MoonshotAI/kimi-code/releases)
 - [Configuration guide](https://moonshotai.github.io/kimi-code/en/configuration/config-files)

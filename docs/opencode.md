@@ -2,8 +2,9 @@
 
 OpenCode is the repository's default agent. Follow the
 [shared workflow](agent-common.md) for environment setup, the base image, GPU
-allocation, submission rules, and logs. Azure Kimi K3, DeepSeek V4.1 Flash, and
-GLM 5.3 configuration is in [Azure models](azure-models.md#opencode).
+allocation, submission rules, and logs. Azure Kimi K3 / K3.1 Pro, DeepSeek
+V4.1 Flash / Flash 1017, and GLM 5.3 configuration is in
+[Azure models](azure-models.md#opencode).
 
 ## Build once
 
@@ -67,8 +68,9 @@ assistant response. Shared output paths and monitoring commands are in the
 
 Historical Azure connectivity, tool-call, and effort-forwarding checks used
 OpenCode **1.19.2**; see [results and logs](azure-models.md#validation).
-The build example above selects **1.19.5** and does not establish that the same
-runtime checks were repeated on that version.
+The Flash 1017 and Kimi K3.1 Pro additions passed API, streaming file-read, and
+effort-forwarding checks with **1.19.5** on **2026-11-10**. Other historical
+model checks were not repeated on that version.
 
 - [Configuration](https://opencode.ai/docs/config/)
 - [Custom providers](https://opencode.ai/docs/providers/#custom-provider)
