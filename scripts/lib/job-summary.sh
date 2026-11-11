@@ -10,7 +10,7 @@ job_summary_on_exit() {
     fi
 
     local model_args=()
-    if [[ "$AGENT" == codex && -n "${MODEL_ID:-}" ]]; then
+    if [[ -n "${MODEL_ID:-}" ]]; then
         model_args=(--model "$MODEL_ID")
     fi
     python3 "$PROJECT_ROOT/scripts/lib/agent-summary.py" \
