@@ -22,19 +22,30 @@ CODEX_PRICES = {
 }
 
 
-# Azure Global Standard USD/1M tokens, checked 2026-11-11. Same category order.
-# Sources and assumptions: docs/agent-costs.md.
-AZURE_PRICES = {
-    "FW-Kimi-K3.1-Pro": tuple(map(Decimal, ("2.05", "0.20", "0", "10.35"))),
+# Original model-provider USD/1M tokens, checked 2026-11-11. Same category order.
+# Deployment IDs below are aliases, not Azure prices. Kimi uses 5m cache writes;
+# DeepSeek estimates always use the official peak rates.
+# https://www.kimi.ai/resources/kimi-k3-1-pro-pricing
+# https://api-docs.deepseek.com/quick_start/pricing/
+OFFICIAL_PRICES = {
+    "FW-Kimi-K3.1-Pro": tuple(map(Decimal, ("2", "0.20", "2", "10"))),
     "DeepSeek-V4.1-Flash": tuple(map(Decimal, ("0.30", "0.006", "0", "1.20"))),
     "DeepSeek-V4.1-Flash-1017": tuple(map(Decimal, ("0.30", "0.006", "0", "1.20"))),
 }
-AZURE_ALIASES = {
+MODEL_ALIASES = {
     "kimi-k3.1-pro": "FW-Kimi-K3.1-Pro",
     "azure-kimi/kimi-k3.1-pro": "FW-Kimi-K3.1-Pro",
     "azure-deepseek/deepseek-v4.1-flash": "DeepSeek-V4.1-Flash",
     "azure-deepseek/deepseek-v4.1-flash-1017": "DeepSeek-V4.1-Flash-1017",
+    "deepseek-flash": "DeepSeek-V4.1-Flash-1017",
+    "deepseek-v4.1-flash": "DeepSeek-V4.1-Flash",
+    "deepseek-v4.1-flash-1017": "DeepSeek-V4.1-Flash-1017",
 }
+
+# Grok 4.7 original-provider Standard USD/1M, checked 2026-11-11.
+# https://docs.x.ai/developers/pricing also specifies 2x at >=200K prompt tokens.
+GROK_PRICES = tuple(map(Decimal, ("2", "0.5", "0", "6")))
+GROK_MODELS = {"grok-4.7", "azure-grok-4.7", "azure/grok-4.7"}
 
 
 def json_events(log: Path):
@@ -63,19 +74,19 @@ def token_cost(counts, prices) -> Decimal:
     return sum((count * price for count, price in zip(counts, prices)), Decimal(0)) / 1_000_000
 
 
-def azure_model(model: str | None) -> str | None:
-    return AZURE_ALIASES.get(model, model) if isinstance(model, str) else None
+def model_id(model: str | None) -> str | None:
+    return MODEL_ALIASES.get(model, model) if isinstance(model, str) else None
 
 
-def azure_run_model(log: Path) -> str | None:
+def run_model_id(log: Path) -> str | None:
     # submit-agent.sh truncates model slugs to 32 characters. Only accept a
     # collision when all matching deployments have identical prices.
     matches = set()
-    for alias, model in AZURE_ALIASES.items():
+    for alias, model in MODEL_ALIASES.items():
         slug = re.sub(r"[^a-z0-9]+", "-", alias.lower())[:32].rstrip("-")
         if re.search(rf"-{re.escape(slug)}-\d+$", log.parent.name):
             matches.add(model)
-    if matches and len({AZURE_PRICES[model] for model in matches}) == 1:
+    if matches and len({OFFICIAL_PRICES[model] for model in matches}) == 1:
         return sorted(matches)[0]
     return None
 
@@ -141,21 +152,19 @@ def kimi_cost(log: Path, model: str | None):
             if isinstance(event.get("usage"), dict) and "inputCacheRead" not in event["usage"]:
                 counts = None  # Kimi uses an absent cache-read count for unknown usage.
             alias = event.get("model")
-            actual = azure_model(models.get(alias, alias or model) if isinstance(alias, str) else model)
-            prices = AZURE_PRICES.get(actual)
-            if counts is None or prices is None or counts[2]:
-                # No verified separate Azure cache-creation tariff is pinned.
+            actual = model_id(models.get(alias, alias or model) if isinstance(alias, str) else model)
+            prices = OFFICIAL_PRICES.get(actual)
+            if counts is None or prices is None or (counts[2] and prices[2] == 0):
                 return None  # Don't present a partial sum as the full job cost.
             # Both 'turn' and 'session' records are per-request deltas; session
             # includes compaction. Nested copies in other event types are ignored.
             total += token_cost(counts, prices)
             found = True
-    return (total, "estimated from Kimi usage.record events; Azure Global Standard") if found else None
+    return (total, "estimated from Kimi usage.record events; official model API prices, 5m cache writes") if found else None
 
 
 def opencode_cost(log: Path, model: str | None):
-    actual = azure_model(model) if model is not None else azure_run_model(log)
-    prices = AZURE_PRICES.get(actual)
+    actual = model_id(model) if model is not None else run_model_id(log)
     total = Decimal(0)
     found = estimated = False
     for event in json_events(log):
@@ -187,7 +196,8 @@ def opencode_cost(log: Path, model: str | None):
                 # OpenCode records visible output and reasoning separately.
                 counts = (*counts[:3], counts[3] + reasoning)
         if counts is not None and any(counts):
-            if prices is None or counts[2]:
+            prices = OFFICIAL_PRICES.get(actual)
+            if prices is None or (counts[2] and prices[2] == 0):
                 return None  # Zero with billable tokens is not proof of free use.
             total += token_cost(counts, prices)
             estimated = True
@@ -196,8 +206,69 @@ def opencode_cost(log: Path, model: str | None):
         found = True
     if not found:
         return None
-    basis = "estimated from OpenCode usage (zero/missing step costs); Azure Global Standard" if estimated else "agent-reported"
+    pricing = ("DeepSeek official API peak rates" if actual and actual.startswith("DeepSeek-")
+               else "Moonshot official API prices, 5m cache writes")
+    basis = f"estimated from OpenCode usage (zero/missing step costs); {pricing}" if estimated else "agent-reported"
     return total, basis
+
+
+def grok_cost(log: Path, model: str | None):
+    reported = reported_cost("grok", log)
+    if reported is not None and reported > 0:
+        return reported, "agent-reported"
+
+    selected = model
+    messages = {}
+    aggregate = [0, 0, 0, 0]
+    found_aggregate = False
+    keys = ("input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens", "output_tokens")
+    for event in json_events(log):
+        if selected is None and event.get("type") == "system" and event.get("subtype") == "init":
+            selected = event.get("model")
+        if event.get("type") == "assistant":
+            message = event.get("message")
+            if not isinstance(message, dict) or "usage" not in message:
+                continue
+            actual = message.get("model", selected)
+            counts = token_counts(message.get("usage"), keys)
+            if not isinstance(actual, str) or actual not in GROK_MODELS or counts is None or counts[2]:
+                return None
+            message_id = message.get("id")
+            if not isinstance(message_id, str):
+                return None  # A stable ID is needed to avoid counting streamed copies twice.
+            identity = (event.get("session_id"), message_id)
+            messages[identity] = counts
+        elif event.get("type") == "result":
+            counts = token_counts(event.get("usage"), keys)
+            if counts is None:
+                continue
+            if event.get("usage_is_incomplete") or counts[2]:
+                return None
+            models = event.get("modelUsage")
+            if isinstance(models, dict) and models:
+                if any(name not in GROK_MODELS for name in models):
+                    return None
+                if selected is None:
+                    selected = next(iter(models))
+            aggregate = [a + b for a, b in zip(aggregate, counts)]
+            found_aggregate = True
+
+    if not isinstance(selected, str) or selected not in GROK_MODELS:
+        return None
+    totals = tuple(sum(counts[i] for counts in messages.values()) for i in range(4))
+    # The result ledger can omit late notification replies. Prefer unique
+    # response records when they cover every bucket in the aggregate; don't
+    # add the aggregate to them. Per-response counts also allow context tiers.
+    if messages and (not found_aggregate or all(a >= b for a, b in zip(totals, aggregate))):
+        cost = sum((token_cost(counts, GROK_PRICES) *
+                    (2 if sum(counts[:3]) >= 200_000 else 1)
+                    for counts in messages.values()), Decimal(0))
+        return cost, "estimated from unique Grok message usage; xAI Standard, per-request context tiers"
+    if found_aggregate:
+        # Subagent/contentless responses may appear only in the result ledger.
+        # Aggregate tokens cannot reveal how many requests crossed 200K.
+        return token_cost(aggregate, GROK_PRICES), "estimated from Grok result usage; xAI Standard short-context rates"
+    return None
 
 
 def codex_model(log: Path, model: str | None) -> str | None:
@@ -314,6 +385,8 @@ def main() -> None:
         result = kimi_cost(args.log, args.model)
     elif args.agent == "opencode":
         result = opencode_cost(args.log, args.model)
+    elif args.agent == "grok":
+        result = grok_cost(args.log, args.model)
     else:
         cost = reported_cost(args.agent, args.log)
         if cost is not None:
