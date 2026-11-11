@@ -9,8 +9,13 @@ job_summary_on_exit() {
         agent_cleanup || status=$?
     fi
 
+    local model_args=()
+    if [[ "$AGENT" == codex && -n "${MODEL_ID:-}" ]]; then
+        model_args=(--model "$MODEL_ID")
+    fi
     python3 "$PROJECT_ROOT/scripts/lib/agent-summary.py" \
-        "$AGENT" "$RUN_DIR/agent.jsonl" "$JOB_STARTED_AT" "$(date +%s)" "$status" || true
+        "$AGENT" "$RUN_DIR/agent.jsonl" "$JOB_STARTED_AT" "$(date +%s)" "$status" \
+        "${model_args[@]}" || true
     exit "$status"
 }
 trap job_summary_on_exit EXIT
