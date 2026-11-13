@@ -33,10 +33,10 @@ The recorded configuration uses this Azure resource:
 | Model | Azure deployment / API `model` | TPM | RPM |
 | --- | --- | --- | --- |
 | Kimi K3 | `FW-Kimi-K3` | 250,000 | 250 |
-| Kimi K3.1 Pro | `FW-Kimi-K3.1-Pro` | 500,000 | 500 |
+| Kimi K3.1 Pro | `FW-Kimi-K3.1-Pro` | 1,000,000 | 1000 |
 | DeepSeek V4.1 Flash | `DeepSeek-V4.1-Flash` | 1,000,000 | 1,000 |
 | DeepSeek V4.1 Flash 1017 | `DeepSeek-V4.1-Flash-1017` | 1,000,000 | 1,000 |
-| GLM 5.3 | `FW-GLM-5.3` | 250,000 | 250 |
+| GLM 5.3 | `FW-GLM-5.3` | 500,000 | 500 |
 | Grok 4.7 | `grok-4.7` | 10,000,000 | 10,000 |
 | GPT-6 Astra | `gpt-6-astra` | 10,000,000 | 10,000 |
 | GPT-6.1 Sol | `gpt-6.1-sol` | 10,000,000 | 10,000 |
