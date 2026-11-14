@@ -33,7 +33,7 @@ The recorded configuration uses this Azure resource:
 | Model | Azure deployment / API `model` | TPM | RPM |
 | --- | --- | --- | --- |
 | Kimi K3 | `FW-Kimi-K3` | 250,000 | 250 |
-| Kimi K3.1 Pro | `FW-Kimi-K3.1-Pro` | 1,000,000 | 1000 |
+| Kimi K3.1 Pro | `Kimi-K3.1-Pro` | 1,000,000 | 1000 |
 | DeepSeek V4.1 Flash | `DeepSeek-V4.1-Flash` | 1,000,000 | 1,000 |
 | DeepSeek V4.1 Flash 1017 | `DeepSeek-V4.1-Flash-1017` | 1,000,000 | 1,000 |
 | GLM 5.3 | `FW-GLM-5.3` | 500,000 | 500 |
@@ -154,7 +154,7 @@ sent as the deployment name:
           }
         },
         "kimi-k3.1-pro": {
-          "id": "FW-Kimi-K3.1-Pro",
+          "id": "Kimi-K3.1-Pro",
           "name": "Kimi K3.1 Pro (Azure)",
           "options": {"reasoningEffort": "high"},
           "variants": {
@@ -296,7 +296,7 @@ default_effort = "high"
 
 [models."kimi-k3.1-pro"]
 provider = "azure-kimi"
-model = "FW-Kimi-K3.1-Pro"
+model = "Kimi-K3.1-Pro"
 max_context_size = 131072
 capabilities = ["thinking"]
 support_efforts = ["low", "high", "max"]
@@ -491,6 +491,22 @@ It does not use Chat Completions `choices`.
 <a id="validation"></a>
 
 ## Validation and logs
+
+### 2026-11-14 deployment correction
+
+The current user-provided Kimi K3.1 Pro deployment name is `Kimi-K3.1-Pro`.
+A direct Chat Completions request using the existing local credential and
+`reasoning_effort: "high"` returned HTTP 200 and `API_OK`. The previous
+`FW-Kimi-K3.1-Pro` name returned HTTP 404 / `DeploymentNotFound`, matching
+the startup failure in Slurm job `3069440`; training did not start.
+The saved Kimi Code and OpenCode mappings and examples now use the current
+deployment name while retaining their existing local aliases and defaults.
+An isolated Kimi Code check using the corrected saved configuration also
+returned a random marker from `/workspace/check.txt` and exited 0. Session
+records show two requests for `Kimi-K3.1-Pro` at `high` effort; this CLI check
+did not capture HTTP request bodies. It left the saved configuration unchanged
+and used no GPU allocation or Slurm job.
+The November 10 checks below retain the deployment name recorded at that time.
 
 ### 2026-11-10 additions
 

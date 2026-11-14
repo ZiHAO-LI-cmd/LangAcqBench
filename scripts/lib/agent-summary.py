@@ -33,6 +33,7 @@ OFFICIAL_PRICES = {
     "DeepSeek-V4.1-Flash-1017": tuple(map(Decimal, ("0.30", "0.006", "0", "1.20"))),
 }
 MODEL_ALIASES = {
+    "Kimi-K3.1-Pro": "FW-Kimi-K3.1-Pro",
     "kimi-k3.1-pro": "FW-Kimi-K3.1-Pro",
     "azure-kimi/kimi-k3.1-pro": "FW-Kimi-K3.1-Pro",
     "azure-deepseek/deepseek-v4.1-flash": "DeepSeek-V4.1-Flash",
