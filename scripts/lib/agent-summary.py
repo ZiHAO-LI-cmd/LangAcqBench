@@ -31,6 +31,9 @@ OFFICIAL_PRICES = {
     "FW-Kimi-K3.1-Pro": tuple(map(Decimal, ("2", "0.20", "2", "10"))),
     "DeepSeek-V4.1-Flash": tuple(map(Decimal, ("0.30", "0.006", "0", "1.20"))),
     "DeepSeek-V4.1-Flash-1017": tuple(map(Decimal, ("0.30", "0.006", "0", "1.20"))),
+    # Z.AI official USD/1M, checked 2026-11-15; separate cache writes unpriced.
+    # https://docs.z.ai/guides/overview/pricing
+    "GLM-5.3": tuple(map(Decimal, ("1.40", "0.26", "0", "4.40"))),
 }
 MODEL_ALIASES = {
     "Kimi-K3.1-Pro": "FW-Kimi-K3.1-Pro",
@@ -41,6 +44,8 @@ MODEL_ALIASES = {
     "deepseek-flash": "DeepSeek-V4.1-Flash-1017",
     "deepseek-v4.1-flash": "DeepSeek-V4.1-Flash",
     "deepseek-v4.1-flash-1017": "DeepSeek-V4.1-Flash-1017",
+    "glm-5.3": "GLM-5.3",
+    "azure-glm/glm-5.3": "GLM-5.3",
 }
 
 # Grok 4.7 original-provider Standard USD/1M, checked 2026-11-11.
@@ -207,8 +212,12 @@ def opencode_cost(log: Path, model: str | None):
         found = True
     if not found:
         return None
-    pricing = ("DeepSeek official API peak rates" if actual and actual.startswith("DeepSeek-")
-               else "Moonshot official API prices, 5m cache writes")
+    if actual and actual.startswith("DeepSeek-"):
+        pricing = "DeepSeek official API peak rates"
+    elif actual == "GLM-5.3":
+        pricing = "Z.AI official GLM-5.3 API prices"
+    else:
+        pricing = "Moonshot official API prices, 5m cache writes"
     basis = f"estimated from OpenCode usage (zero/missing step costs); {pricing}" if estimated else "agent-reported"
     return total, basis
 
