@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Evaluate local causal-LM translations with FLORES200 BLEU and chrF++."""
+"""Evaluate translations with BLEU/chrF++ and save samples for COMET scoring."""
 import argparse
 from datetime import datetime, timezone
 import hashlib
@@ -236,6 +236,13 @@ def sha256(path):
     return digest.hexdigest()
 
 
+def save_samples(output, groups):
+    path = output.resolve().with_suffix('.samples.json')
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({'groups': groups}, ensure_ascii=False) + '\n', encoding='utf-8')
+    return {'path': str(path), 'sha256': sha256(path)}
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--model', type=Path, required=True)
@@ -296,18 +303,23 @@ def main():
         bleu, chrf = BLEU(tokenize='flores200'), CHRF(char_order=6, word_order=2, beta=2)
         translator = Translator(args)
         results = []
+        sample_groups = []
         for dataset, src, tgt, texts, refs, alignment, source, target, examples, shot_metadata in groups:
             print(f'Evaluating {dataset}: {src} -> {tgt}', file=sys.stderr)
             predictions = translator.translate(texts, languages[src], languages[tgt], examples)
+            sample_groups.append(dict(dataset=dataset, source=src, target=tgt,
+                                      samples=[{'src': s, 'mt': m, 'ref': r}
+                                               for s, m, r in zip(texts, predictions, refs)]))
             results.append(dict(dataset=dataset, source=src, target=tgt, count=len(texts),
                                 alignment=alignment, few_shot=shot_metadata, source_sha256=sha256(source), target_sha256=sha256(target),
                                 **compute_metrics(predictions, refs, bleu, chrf)))
         import importlib.metadata
         report = {'task': 'translation', 'timestamp': datetime.now(timezone.utc).isoformat(),
                   'test_dir': str(args.test_dir.resolve()), 'languages': languages,
+                  'samples_file': save_samples(args.output, sample_groups),
                   'inference': translator.metadata, 'groups': results,
                   'macro_average': {m: sum(r[m] for r in results) / len(results) for m in ('bleu', 'chrf++')},
-                  'aggregation': 'Unweighted mean over dataset/direction groups; scores on a 0-100 scale.',
+                  'aggregation': 'Unweighted mean over dataset/direction groups; BLEU and chrF++ on a 0-100 scale.',
                   'versions': {pkg: importlib.metadata.version(pkg) for pkg in
                                ('sacrebleu', 'sentencepiece', 'pyarrow', 'vllm', 'transformers', 'torch')}}
         args.output.parent.mkdir(parents=True, exist_ok=True)

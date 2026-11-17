@@ -10,7 +10,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
 
-HEADERS = ('Task', 'Dataset / Direction', 'Samples', 'BLEU', 'chrF++', 'Acc_norm', 'Exact match')
+HEADERS = ('Task', 'Dataset / Direction', 'Samples', 'BLEU', 'chrF++', 'COMET', 'Acc_norm', 'Exact match')
 DATASET_NAMES = {'bouquet': 'Bouquet', 'flores200': 'FLORES-200'}
 PIQA_VARIANTS = {
     'nonparallel_cloze': 'Nonparallel cloze',
@@ -61,7 +61,8 @@ def build_rows(translation, lm_results=None):
     for group in translation['groups']:
         direction = f'{language_name(group["source"], languages)} → {language_name(group["target"], languages)}'
         dataset = DATASET_NAMES.get(group['dataset'].casefold(), group['dataset'])
-        rows.append(('Translation', f'{dataset}: {direction}', group['count'], group['bleu'], group['chrf++'], None, None))
+        rows.append(('Translation', f'{dataset}: {direction}', group['count'], group['bleu'], group['chrf++'],
+                     group.get('comet'), None, None))
 
     if lm_results is not None:
         results = lm_results['results']
@@ -70,10 +71,10 @@ def build_rows(translation, lm_results=None):
         for task, result in results.items():
             label, dataset = task_label(task, languages, configs.get(task, {}))
             count = samples.get(task, {}).get('effective', result.get('sample_len'))
-            rows.append((label, dataset, count, None, None,
+            rows.append((label, dataset, count, None, None, None,
                          metric(result, 'acc_norm'), metric(result, 'exact_match')))
     averages = []
-    for column in (3, 4, 5, 6):
+    for column in range(3, len(HEADERS)):
         values = [row[column] for row in rows if row[column] is not None]
         averages.append(sum(values) / len(values) if values else None)
     return [('Avg', None, None, *averages)] + rows
@@ -102,12 +103,13 @@ def write_workbook(rows, output):
         row[2].number_format = '#,##0'
         for cell in row[3:5]:
             cell.number_format = '0.00'
-        for cell in row[5:7]:
+        row[5].number_format = '0.0000'
+        for cell in row[6:8]:
             cell.number_format = '0.00%'
-    for index, width in enumerate((18, 43, 12, 12, 12, 15, 16), start=1):
+    for index, width in enumerate((18, 43, 12, 12, 12, 12, 15, 16), start=1):
         sheet.column_dimensions[get_column_letter(index)].width = width
     sheet.freeze_panes = 'A3'
-    sheet.auto_filter.ref = f'A1:G{sheet.max_row}'
+    sheet.auto_filter.ref = f'A1:H{sheet.max_row}'
     output.parent.mkdir(parents=True, exist_ok=True)
     workbook.save(output)
 

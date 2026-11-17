@@ -3,12 +3,12 @@
 #SBATCH --error=runs/evaluate/logs/%x_%j.err
 #SBATCH --output=runs/evaluate/logs/%x_%j.out
 #SBATCH --account=project_2001403
-#SBATCH --partition=gpumedium
+#SBATCH --partition=gputest
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=72
 #SBATCH --gres=gpu:gh200:1
-#SBATCH --time=0-01:15:00
+#SBATCH --time=0-00:15:00
 
 set -euo pipefail
 
@@ -24,16 +24,21 @@ Run from the repository root; create runs/evaluate/logs before submitting.
   MODEL              Directory under models/, models/NAME, or an absolute path.
   --mt-dirs          Required language code/name pairs; supply at least two.
   --mono-tasks       Optional lm_eval tasks, separated by spaces or commas.
-  EVALUATOR_OPTIONS  Passed to evaluate-mt.py (e.g. --n-shot 3, --dev-dir DIR).
+  --no-comet         Skip COMET scoring (enabled by default: Unbabel/wmt22-comet-da).
+  EVALUATOR_OPTIONS  See scripts/evaluate.sh --help (e.g. --n-shot 3, --comet-model PATH).
   SBATCH_OPTIONS     Override local resource defaults, such as --time or --partition.
 
 Results go to runs/evaluate/MODEL__job-JOB_ID/ as translation.json,
 lm-eval_*.json (when requested), and summary.xlsx. Slurm logs go to
 runs/evaluate/logs/.
+COMET uses env-comet/bin/python; see docs/evaluation.md for separate environment setup.
 
 Examples:
   sbatch scripts/evaluate-slurm.sh SmolLM3-3B \
     --mt-dirs eng_Latn=English swe_Latn=Swedish --n-shot 3
+
+  sbatch scripts/evaluate-slurm.sh SmolLM3-3B \
+    --mt-dirs eng_Latn=English swe_Latn=Swedish --n-shot 3 --no-comet
 
   sbatch scripts/evaluate-slurm.sh SmolLM3-3B \
     --mt-dirs eng_Latn=English swe_Latn=Swedish --n-shot 3 \

@@ -20,11 +20,19 @@ Common options:
   --n-shot N      Few-shot examples per prompt (default: 3; use 0 without data/dev).
   --dev-dir DIR   Aligned examples for few-shot evaluation.
   --output FILE   Override the default translation JSON path.
+  --no-comet      Skip COMET scoring (enabled by default: Unbabel/wmt22-comet-da).
+  --comet-model MODEL  Use a Hugging Face model ID or local COMET .ckpt.
+  --comet-batch-size N  COMET batch size (default: 8).
+  --comet-gpus N   COMET devices: 0 for CPU, 1 for GPU (default: 1).
+  --validate-only Check translation data without inference, scoring, or reporting.
 
 Results: runs/evaluate/MODEL__job-JOB_ID/{translation.json,lm-eval_*.json,summary.xlsx}
+Translation samples are saved beside the JSON for later COMET scoring.
+COMET runs by default after the translation process exits. See docs/evaluation.md for setup.
 
 Environment:
   PROJECT_DIR     Repository path (defaults to this project's host path).
+  COMET_PYTHON    Separate COMET interpreter (default: PROJECT_DIR/env-comet/bin/python).
 
 Example (inside a Slurm allocation):
   bash scripts/evaluate.sh SmolLM3-3B \
@@ -50,8 +58,49 @@ mono_tasks=""
 has_mt_dirs=0
 evaluator_args=()
 translation_output=""
+comet_enabled=1
+comet_model="Unbabel/wmt22-comet-da"
+comet_batch_size=8
+comet_gpus=1
+validate_only=0
 while (( $# )); do
     case "$1" in
+        --no-comet)
+            comet_enabled=0
+            shift
+            ;;
+        --comet)
+            comet_enabled=1
+            shift
+            ;;
+        --comet-model|--comet-model=*|--comet-batch-size|--comet-batch-size=*|--comet-gpus|--comet-gpus=*)
+            option="${1%%=*}"
+            if [[ "$1" == *=* ]]; then
+                value="${1#*=}"
+                shift
+            else
+                if (( $# < 2 )) || [[ "$2" == -* ]]; then
+                    echo "$1 requires a value." >&2
+                    exit 2
+                fi
+                value="$2"
+                shift 2
+            fi
+            if [[ -z "$value" ]]; then
+                echo "$option requires a value." >&2
+                exit 2
+            fi
+            case "$option" in
+                --comet-model) comet_model="$value" ;;
+                --comet-batch-size) comet_batch_size="$value" ;;
+                --comet-gpus) comet_gpus="$value" ;;
+            esac
+            ;;
+        --validate-only)
+            validate_only=1
+            evaluator_args+=("$1")
+            shift
+            ;;
         --mono-tasks|--mono-tasks=*)
             if [[ "$1" == *=* ]]; then
                 mono_tasks="${mono_tasks:+$mono_tasks,}${1#*=}"
@@ -95,6 +144,10 @@ while (( $# )); do
             ;;
     esac
 done
+if [[ ! "$comet_batch_size" =~ ^[1-9][0-9]*$ ]] || [[ ! "$comet_gpus" =~ ^[01]$ ]]; then
+    echo "COMET requires --comet-batch-size > 0 and --comet-gpus 0 or 1." >&2
+    exit 2
+fi
 if (( ! has_mt_dirs )); then
     echo "Missing --mt-dirs; provide at least two CODE=NAME values." >&2
     exit 2
@@ -106,6 +159,13 @@ cd "${PROJECT_DIR}"
 module --force purge
 module load python-vllm/0.29.0
 source env-eval/bin/activate
+
+comet_python="${COMET_PYTHON:-$PROJECT_DIR/env-comet/bin/python}"
+if (( comet_enabled && ! validate_only )) && [[ ! -x "$comet_python" ]]; then
+    echo "COMET interpreter not found: $comet_python" >&2
+    echo "Create the separate env-comet environment using docs/evaluation.md; do not install COMET into env-eval." >&2
+    exit 2
+fi
 
 case "$MODEL" in
     /*) ;;
@@ -142,6 +202,15 @@ srun python -u "$PROJECT_DIR/scripts/evaluation/evaluate-mt.py" \
     --output "$RUN_DIR/translation.json" \
     "${evaluator_args[@]}"
 
+if (( validate_only )); then
+    exit 0
+fi
+
+if (( comet_enabled )); then
+    srun "$comet_python" -u "$PROJECT_DIR/scripts/evaluation/evaluate-comet.py" \
+        --translation "$translation_output" --model "$comet_model" \
+        --batch-size "$comet_batch_size" --gpus "$comet_gpus"
+fi
 
 if [[ -n "$mono_tasks" ]]; then
     srun lm_eval \
