@@ -292,41 +292,56 @@ def codex_model(log: Path, model: str | None) -> str | None:
     return None
 
 
+def codex_token_counts(usage) -> tuple[int, ...] | None:
+    counts = token_counts(usage, (
+        "input_tokens", "cached_input_tokens", "cache_write_input_tokens", "output_tokens"))
+    if counts is None:
+        return None
+    total_input, cached, writes, output = counts
+    ordinary = total_input - cached - writes
+    # Reasoning is already included in output_tokens.
+    return (ordinary, cached, writes, output) if ordinary >= 0 else None
+
+
+def codex_session_counts(log: Path, thread_id: str) -> tuple[int, ...] | None:
+    sessions = log.parent / "home/.codex/sessions"
+    rollouts = [path for path in sessions.glob("*/*/*/rollout-*.jsonl")
+                if path.name.endswith(f"-{thread_id}.jsonl")]
+    if len(rollouts) != 1:
+        return None
+
+    # The rollout can retain accounting even when stdout has no turn.completed.
+    counts = None
+    for event in json_events(rollouts[0]):
+        if event.get("type") != "token_usage_record":
+            continue
+        payload = event.get("payload")
+        if not isinstance(payload, dict) or payload.get("thread_id") != thread_id:
+            continue
+        usage = codex_token_counts(payload.get("thread_token_usage"))
+        if usage is not None:
+            counts = usage
+    return counts
+
+
 def codex_cost(log: Path, model: str | None) -> Decimal | None:
     prices = CODEX_PRICES.get(codex_model(log, model))
-    if prices is None or not log.is_file():
+    if prices is None:
         return None
 
     counts = None
-    with log.open(encoding="utf-8", errors="replace") as stream:
-        for line in stream:
-            try:
-                event = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if not isinstance(event, dict) or event.get("type") != "turn.completed":
-                continue
-            usage = event.get("usage")
-            if not isinstance(usage, dict):
-                continue
-            values = (
-                usage.get("input_tokens"),
-                usage.get("cached_input_tokens", 0),
-                usage.get("cache_write_input_tokens", 0),
-                usage.get("output_tokens"),
-            )
-            if any(type(value) is not int or value < 0 for value in values):
-                continue
-            input_tokens, cached, writes, output = values
-            ordinary = input_tokens - cached - writes
-            if ordinary < 0:
-                continue
-            # Keep the last cumulative usage; reasoning is already in output_tokens.
-            counts = (ordinary, cached, writes, output)
+    thread_id = None
+    for event in json_events(log):
+        if event.get("type") == "thread.started" and isinstance(event.get("thread_id"), str):
+            thread_id = event["thread_id"]
+        if event.get("type") == "turn.completed":
+            usage = codex_token_counts(event.get("usage"))
+            if usage is not None:
+                counts = usage
 
-    if counts is None:
-        return None
-    return token_cost(counts, prices)
+    if counts is None and thread_id:
+        counts = codex_session_counts(log, thread_id)
+    return token_cost(counts, prices) if counts is not None else None
 
 
 def reported_cost(agent: str, log: Path) -> Decimal | None:
